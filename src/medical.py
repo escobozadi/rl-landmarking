@@ -300,7 +300,10 @@ class MedicalPlayer(gym.Env):
             official evaluations of your agent are not allowed to use this for
             learning.
         """
-        go_out = self.move(act,q_values)
+        if self.dims == 2:
+            go_out, current_loc, next_location = self.move2d(act, q_values)
+        else:
+            go_out,current_loc, next_location = self.move(act,q_values)
         ######################################################################
 
         # punish -1 reward if the agent tries to go out
@@ -471,12 +474,12 @@ class MedicalPlayer(gym.Env):
                     next_location[i] = current_loc[i]
                     go_out[i] = True
             # -----------------------------------------------------------------
-        return go_out
+        return go_out,current_loc, next_location
 
     def move2d(self,act, q_values):
         # 1: forward y+, 2: right x+, 3: left x-, 4: back y-
         self._qvalues = q_values
-        current_loc = self._location
+        current_loc = self._location    # list of coord for every agent
         next_location = copy.deepcopy(current_loc)
         self.terminal = [False] * self.agents
         go_out = [False] * self.agents
@@ -489,8 +492,7 @@ class MedicalPlayer(gym.Env):
                     current_loc[i][0],
                     round(
                         current_loc[i][1] +
-                        self.action_step),
-                    current_loc[i][2])
+                        self.action_step) )
                 if (next_location[i][1] >= self._image_dims[1]):
                     # print(' trying to go out the image Y+ ',)
                     next_location[i] = current_loc[i]
@@ -501,8 +503,7 @@ class MedicalPlayer(gym.Env):
                     round(
                         current_loc[i][0] +
                         self.action_step),
-                    current_loc[i][1],
-                    current_loc[i][2])
+                    current_loc[i][1] )
                 if next_location[i][0] >= self._image_dims[0]:
                     # print(' trying to go out the image X+ ',)
                     next_location[i] = current_loc[i]
@@ -513,8 +514,7 @@ class MedicalPlayer(gym.Env):
                     round(
                         current_loc[i][0] -
                         self.action_step),
-                    current_loc[i][1],
-                    current_loc[i][2])
+                    current_loc[i][1] )
                 if next_location[i][0] <= 0:
                     # print(' trying to go out the image X- ',)
                     next_location[i] = current_loc[i]
@@ -525,13 +525,12 @@ class MedicalPlayer(gym.Env):
                     current_loc[i][0],
                     round(
                         current_loc[i][1] -
-                        self.action_step),
-                    current_loc[i][2])
+                        self.action_step))
                 if next_location[i][1] <= 0:
                     # print(' trying to go out the image Y- ',)
                     next_location[i] = current_loc[i]
                     go_out[i] = True
-        return go_out
+        return go_out,current_loc, next_location
 
     def getBestLocation(self):
         ''' get best location with best qvalue from last 4 locations
@@ -737,6 +736,7 @@ class MedicalPlayer(gym.Env):
         self.num_success = [0] * int(self.agents)
 
     def display(self, return_rgb_array=False):
+        # TODO: change to 2D viz
         # Initializations
         planes = np.flipud(
             np.transpose(

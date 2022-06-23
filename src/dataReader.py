@@ -6,6 +6,7 @@
 import SimpleITK as sitk
 import numpy as np
 import warnings
+from PIL import Image
 
 warnings.simplefilter("ignore", category=ResourceWarning)
 
@@ -26,9 +27,10 @@ def getLandmarksFromTXTFile(file, split=','):
         landmarks = []
         for i, line in enumerate(fp):
             landmarks.append([float(k) for k in line.split(split)])
-        landmarks = np.asarray(landmarks).reshape((-1, 3))
-        return landmarks
 
+        landmarks = np.asarray(landmarks)
+        landmarks = landmarks.reshape((-1, landmarks.shape[1]))
+        return landmarks
 
 def getLandmarksFromVTKFile(file):
     """
@@ -55,7 +57,61 @@ def getLandmarksFromVTKFile(file):
                 return landmarks
 
 ###############################################################################
+class filesListJointUSLandmark(object): #2D joint US images
 
+    def __init__(self, files_list=None, returnLandmarks=True, agents=1):
+        # check if files_list exists
+        assert files_list, 'There is no file given'
+        # read image filenames
+        self.image_files = [line.split('\n')[0]
+                            for line in open(files_list[0].name)]
+        # read landmark filenames if task is train or eval
+        self.returnLandmarks = returnLandmarks
+        self.agents = agents
+        if self.returnLandmarks:
+            self.landmark_files = [
+                line.split('\n')[0] for line in open(
+                    files_list[1].name)]
+            assert len(
+                self.image_files) == len(
+                self.landmark_files), """number of image files is not equal to
+                number of landmark files"""
+
+    @property
+    def num_files(self):
+        return len(self.image_files)
+
+    def sample_circular(self, landmark_ids, shuffle=False):
+        """ return a random sampled ImageRecord from the list of files
+        to sample a new image, should return: image, target loc, file path, spacing
+        spacing: consistent unit, mm
+        image:  image.dims"""
+        if shuffle:
+            # TODO: could use PyTorch shuffles
+            # indexes = rng.choice(x, len(x), replace=False)
+            pass
+        else:
+            indexes = np.arange(self.num_files)
+        while True:
+            for idx in indexes:
+                #png for 2d images
+                pil_image, image = PngImage().decode(self.image_files[idx])
+                if self.returnLandmarks:
+                    # transform landmarks to image space if they are in physical space
+                    landmark_file = self.landmark_files[idx]
+                    landmark = getLandmarksFromTXTFile(landmark_file)  # one (x,y) landmark for tendon
+                    landmarks_round = [np.round(landmark[landmark_ids[i] % 15])
+                                 for i in range(self.agents)]
+                else:
+                    landmarks_round = None
+                # extract filename from path, remove .png extension
+                image_filenames = [self.image_files[idx][:-4]] * self.agents
+                images = [image] * self.agents
+                sitk_image = sitk.GetImageFromArray(image.data) # sitk image from numpy array
+                yield (images, landmarks_round, image_filenames,
+                       sitk_image.GetSpacing())
+
+#####################################################################
 
 class filesListBrainMRLandmark(object):
     """ A class for managing train files for mri brain data
@@ -266,6 +322,26 @@ class ImageRecord(object):
     '''image object to contain height,width, depth and name '''
     pass
 
+class PngImage(object):
+
+    def __init__(self):
+        pass
+
+    def _is_png(self,filename):
+        extension = '.png'
+        return extension in filename
+
+    def decode(self, filename):
+        ''' return image object with info'''
+        image = ImageRecord()
+        image.name = filename
+        assert self._is_png(
+            image.name), "unknown image format for %r" % image.name
+        image_frame = Image.open(filename).convert('L') #greyscale image
+        np_image = np.array(image_frame).transpose(1,0) # 2D image
+        image.data = np_image
+        image.dims = np_image.shape  # (x,y)
+        return image_frame, image
 
 class NiftiImage(object):
     """Helper class that provides TensorFlow image coding utilities."""
@@ -324,3 +400,5 @@ class NiftiImage(object):
         image.dims = np.shape(image.data)
 
         return sitk_image, image
+
+

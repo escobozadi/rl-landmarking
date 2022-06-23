@@ -5,7 +5,9 @@
 
 from dataReader import (filesListBrainMRLandmark,
                         filesListCardioLandmark,
-                        filesListFetalUSLandmark)
+                        filesListFetalUSLandmark,
+                        filesListJointUSLandmark)
+
 from gym import spaces
 import gym
 import shutil
@@ -21,14 +23,11 @@ import os
 import warnings
 import pyglet
 
-
 def warn(*args, **kwargs):
     pass
 
-
 warnings.warn = warn
 warnings.simplefilter("ignore", category=PendingDeprecationWarning)
-
 
 _ALE_LOCK = threading.Lock()
 
@@ -36,9 +35,12 @@ Rectangle = namedtuple(
     'Rectangle', [
         'xmin', 'xmax', 'ymin', 'ymax', 'zmin', 'zmax'])
 
+Rectangle2d = namedtuple(
+    'Rectangle', [
+        'xmin', 'xmax', 'ymin', 'ymax'])
 
 # ===================================================================
-# =================== 3d medical environment ========================
+# ================= 3d / 2d medical environment =====================
 # ===================================================================
 
 class MedicalPlayer(gym.Env):
@@ -106,10 +108,10 @@ class MedicalPlayer(gym.Env):
             if self.viz and isinstance(self.viz, float):
                 self.viewer = None
                 self.gif_buffer = []
-        # stat counter to store current score or accumlated reward
+        # start counter to store current score or accumlated reward
         self.current_episode_score = [[]] * self.agents
         # get action space and minimal action set
-        self.action_space = spaces.Discrete(6)  # change number actions here
+        self.action_space = spaces.Discrete(4)  # CHANGE NUMBER OF ACTIONS HERE **
         self.actions = self.action_space.n
         self.observation_space = spaces.Box(low=0, high=255,
                                             shape=self.screen_dims,
@@ -124,11 +126,12 @@ class MedicalPlayer(gym.Env):
             [(0,) * self.actions for _ in range(self._history_length)]
             for _ in range(self.agents)]
         # initialize rectangle limits from input image coordinates
-        self.rectangle = [Rectangle(0, 0, 0, 0, 0, 0)] * int(self.agents)
+        #self.rectangle = [Rectangle(0, 0, 0, 0, 0, 0)] * int(self.agents)
+        self.rectangle = [Rectangle2d(0, 0, 0, 0)] * int(self.agents) #2D
 
         returnLandmarks = (self.task != 'play')
 
-        # add your data loader here
+        # DATA LOADER
         if file_type == "brain":
             self.files = filesListBrainMRLandmark(files_list,
                                                   returnLandmarks,
@@ -139,6 +142,10 @@ class MedicalPlayer(gym.Env):
                                                  self.agents)
         elif file_type == "fetal":
             self.files = filesListFetalUSLandmark(files_list,
+                                                  returnLandmarks,
+                                                  self.agents)
+        elif file_type == "joint":
+            self.files = filesListJointUSLandmark(files_list,
                                                   returnLandmarks,
                                                   self.agents)
 
@@ -174,10 +181,8 @@ class MedicalPlayer(gym.Env):
 
     def new_random_game(self, fixed_spawn=None):
         """
-        load image,
-        set dimensions,
-        randomize start point,
-        init _screen, qvals,
+        load image, set dimensions,
+        randomize start point, init _screen, qvals,
         calc distance to goal
         """
         self.terminal = [False] * self.agents
@@ -194,21 +199,24 @@ class MedicalPlayer(gym.Env):
         # multiscale (e.g. start with 3 -> 2 -> 1)
         # scale can be thought of as sampling stride
         if self.multiscale:
-            # brain
+            ''''# brain
             self.action_step = 9
-            self.xscale = 3
-            self.yscale = 3
-            self.zscale = 3
+            self.xscale = 3 self.yscale = 3 self.zscale = 3
             # cardiac
-            # self.action_step = 6
-            # self.xscale = 2
-            # self.yscale = 2
-            # self.zscale = 2
+            self.action_step = 6
+            self.xscale = 2 self.yscale = 2 self.zscale = 2'''
+            #Joint 2D
+            self.action_step = 6
+            self.xscale = 2
+            self.yscale = 2
         else:
+            # self.action_step = 1
+            # self.xscale = 1  self.yscale = 1  self.zscale = 1
+            #2D
             self.action_step = 1
             self.xscale = 1
             self.yscale = 1
-            self.zscale = 1
+
         # image volume size
         self._image_dims = self._image[0].dims
 
@@ -216,13 +224,17 @@ class MedicalPlayer(gym.Env):
             # select random starting point
             # add padding to avoid start right on the border of the image
             if self.task == 'train':
+                # skip_thickness = ((int)(self._image_dims[0] / 5),
+                #                 (int)(self._image_dims[1] / 5),
+                #                 (int)(self._image_dims[2] / 5))
                 skip_thickness = ((int)(self._image_dims[0] / 5),
-                                (int)(self._image_dims[1] / 5),
-                                (int)(self._image_dims[2] / 5))
+                                (int)(self._image_dims[1] / 5))
             else:
+                # skip_thickness = (int(self._image_dims[0] / 4),
+                #                 int(self._image_dims[1] / 4),
+                #                 int(self._image_dims[2] / 4))
                 skip_thickness = (int(self._image_dims[0] / 4),
-                                int(self._image_dims[1] / 4),
-                                int(self._image_dims[2] / 4))
+                                int(self._image_dims[1] / 4))
 
             x = np.random.randint(
                     skip_thickness[0],
@@ -232,15 +244,18 @@ class MedicalPlayer(gym.Env):
                     skip_thickness[1],
                     self._image_dims[1] - skip_thickness[1],
                     self.agents)
-            z = np.random.randint(
-                    skip_thickness[2],
-                    self._image_dims[2] - skip_thickness[2],
-                    self.agents)
+            # z = np.random.randint(
+            #         skip_thickness[2],
+            #         self._image_dims[2] - skip_thickness[2],
+            #         self.agents)
         else:
-            x, y, z = [[int(fixed_spawn[i][j]*(self._image_dims[i]-1)) for j in range(self.agents)] for i in range(len(fixed_spawn))]
+            # x, y, z = [[int(fixed_spawn[i][j]*(self._image_dims[i]-1)) for j in range(self.agents)] for i in range(len(fixed_spawn))]
+            x, y = [[int(fixed_spawn[i][j]*(self._image_dims[i]-1)) for j in range(self.agents)] for i in range(len(fixed_spawn))]
 
-        self._location = [(x[i], y[i], z[i]) for i in range(self.agents)]
-        self._start_location = [(x[i], y[i], z[i]) for i in range(self.agents)]
+        # self._location = [(x[i], y[i], z[i]) for i in range(self.agents)]
+        # self._start_location = [(x[i], y[i], z[i]) for i in range(self.agents)]
+        self._location = [(x[i], y[i]) for i in range(self.agents)]
+        self._start_location = [(x[i], y[i]) for i in range(self.agents)]
         self._qvalues = [[0, ] * self.actions] * self.agents
         self._screen = self._current_state()
 
@@ -263,8 +278,6 @@ class MedicalPlayer(gym.Env):
 
     def step(self, act, q_values, isOver):
         """The environment's step function returns exactly what we need.
-        Args:
-          act:
         Returns:
           observation (object):
             an environment-specific object representing your observation of
@@ -287,6 +300,100 @@ class MedicalPlayer(gym.Env):
             official evaluations of your agent are not allowed to use this for
             learning.
         """
+        go_out = self.move(act,q_values)
+        ######################################################################
+
+        # punish -1 reward if the agent tries to go out
+        if self.task != 'play':
+            for i in range(self.agents):
+                if go_out[i]:
+                    self.reward[i] = -1
+                else: # reward based on closeness
+                    self.reward[i] = self._calc_reward(
+                        current_loc[i], next_location[i], agent=i)
+
+        # update screen, reward ,location, terminal
+        self._location = next_location
+        self._screen = self._current_state()
+
+        # terminate if the distance is less than 1 during training
+        if self.task == 'train':
+            for i in range(self.agents):
+                if self.cur_dist[i] <= 1:
+                    self.logger.log(f"distance of agent {i} is <= 1")
+                    self.terminal[i] = True
+                    self.num_success[i] += 1
+        """
+        # terminate if maximum number of steps is reached
+        self.cnt += 1
+        if self.cnt >= self.max_num_frames:
+            for i in range(self.agents):
+                self.terminal[i] = True
+        """
+        # update history buffer with new location and qvalues
+        if self.task != 'play':
+            for i in range(self.agents):
+                self.cur_dist[i] = self.calcDistance(self._location[i],
+                                                     self._target_loc[i],
+                                                     self.spacing)
+        self._update_history()
+        # check if agent oscillates
+        if self._oscillate:
+            self._location = self.getBestLocation()
+            # self._location=[item for sublist in temp for item in sublist]
+            self._screen = self._current_state()
+
+            if self.task != 'play':
+                for i in range(self.agents):
+                    self.cur_dist[i] = self.calcDistance(self._location[i],
+                                                         self._target_loc[i],
+                                                         self.spacing)
+            # multi-scale steps
+            if self.multiscale:
+                if self.xscale > 1:
+                    self.xscale -= 1
+                    self.yscale -= 1
+                    # self.zscale -= 1
+                    self.action_step = int(self.action_step / 3)
+                    self._clear_history()
+                # terminate if scale is less than 1
+                else:
+                    for i in range(self.agents):
+                        self.terminal[i] = True
+                        if self.cur_dist[i] <= 1:
+                            self.num_success[i] += 1
+            else:
+                for i in range(self.agents):
+                    self.terminal[i] = True
+                    if self.cur_dist[i] <= 1:
+                        self.num_success[i] += 1
+        # render screen if viz is on
+        with _ALE_LOCK:
+            if self.viz:
+                if isinstance(self.viz, float):
+                    self.display()
+
+        distance_error = self.cur_dist
+        for i in range(self.agents):
+            self.current_episode_score[i].append(self.reward[i])
+
+        info = {}
+        for i in range(self.agents):
+            info[f"score_{i}"] = np.sum(self.current_episode_score[i])
+            info[f"gameOver_{i}"] = self.terminal[i]
+            info[f"distError_{i}"] = distance_error[i]
+            info[f"filename_{i}"] = self.filename[i]
+            info[f"agent_xpos_{i}"] = self._location[i][0]
+            info[f"agent_ypos_{i}"] = self._location[i][1]
+            # info[f"agent_zpos_{i}"] = self._location[i][2]
+            info[f"landmark_xpos_{i}"] = self._target_loc[i][0]
+            info[f"landmark_ypos_{i}"] = self._target_loc[i][1]
+            # info[f"landmark_zpos_{i}"] = self._target_loc[i][2]
+        return self._current_state(), self.reward, self.terminal, info
+
+    def move(self,act, q_values):
+        ''' 0: up z+, 1: forward y+, 2: right x+
+        3: left x-, 4: back y-, 5: down z-'''
         self._qvalues = q_values
         current_loc = self._location
         next_location = copy.deepcopy(current_loc)
@@ -364,103 +471,70 @@ class MedicalPlayer(gym.Env):
                     next_location[i] = current_loc[i]
                     go_out[i] = True
             # -----------------------------------------------------------------
+        return go_out
 
-        #######################################################################
+    def move2d(self,act, q_values):
+        # 1: forward y+, 2: right x+, 3: left x-, 4: back y-
+        self._qvalues = q_values
+        current_loc = self._location
+        next_location = copy.deepcopy(current_loc)
+        self.terminal = [False] * self.agents
+        go_out = [False] * self.agents
 
-        # punish -1 reward if the agent tries to go out
-        if self.task != 'play':
-            for i in range(self.agents):
-                if go_out[i]:
-                    self.reward[i] = -1
-                else:
-                    self.reward[i] = self._calc_reward(
-                        current_loc[i], next_location[i], agent=i)
-
-        # update screen, reward ,location, terminal
-        self._location = next_location
-        self._screen = self._current_state()
-
-        # terminate if the distance is less than 1 during trainig
-        if self.task == 'train':
-            for i in range(self.agents):
-                if self.cur_dist[i] <= 1:
-                    self.logger.log(f"distance of agent {i} is <= 1")
-                    self.terminal[i] = True
-                    self.num_success[i] += 1
-
-        """
-        # terminate if maximum number of steps is reached
-        self.cnt += 1
-        if self.cnt >= self.max_num_frames:
-            for i in range(self.agents):
-                self.terminal[i] = True
-        """
-
-        # update history buffer with new location and qvalues
-        if self.task != 'play':
-            for i in range(self.agents):
-                self.cur_dist[i] = self.calcDistance(self._location[i],
-                                                     self._target_loc[i],
-                                                     self.spacing)
-
-        self._update_history()
-        # check if agent oscillates
-        if self._oscillate:
-            self._location = self.getBestLocation()
-            # self._location=[item for sublist in temp for item in sublist]
-            self._screen = self._current_state()
-
-            if self.task != 'play':
-                for i in range(self.agents):
-                    self.cur_dist[i] = self.calcDistance(self._location[i],
-                                                         self._target_loc[i],
-                                                         self.spacing)
-
-            # multi-scale steps
-            if self.multiscale:
-                if self.xscale > 1:
-                    self.xscale -= 1
-                    self.yscale -= 1
-                    self.zscale -= 1
-                    self.action_step = int(self.action_step / 3)
-                    self._clear_history()
-                # terminate if scale is less than 1
-                else:
-                    for i in range(self.agents):
-                        self.terminal[i] = True
-                        if self.cur_dist[i] <= 1:
-                            self.num_success[i] += 1
-            else:
-                for i in range(self.agents):
-                    self.terminal[i] = True
-                    if self.cur_dist[i] <= 1:
-                        self.num_success[i] += 1
-        # render screen if viz is on
-        with _ALE_LOCK:
-            if self.viz:
-                if isinstance(self.viz, float):
-                    self.display()
-
-        distance_error = self.cur_dist
+        # agent i movement
         for i in range(self.agents):
-            self.current_episode_score[i].append(self.reward[i])
-
-        info = {}
-        for i in range(self.agents):
-            info[f"score_{i}"] = np.sum(self.current_episode_score[i])
-            info[f"gameOver_{i}"] = self.terminal[i]
-            info[f"distError_{i}"] = distance_error[i]
-            info[f"filename_{i}"] = self.filename[i]
-            info[f"agent_xpos_{i}"] = self._location[i][0]
-            info[f"agent_ypos_{i}"] = self._location[i][1]
-            info[f"agent_zpos_{i}"] = self._location[i][2]
-            info[f"landmark_xpos_{i}"] = self._target_loc[i][0]
-            info[f"landmark_ypos_{i}"] = self._target_loc[i][1]
-            info[f"landmark_zpos_{i}"] = self._target_loc[i][2]
-        return self._current_state(), self.reward, self.terminal, info
+            # FORWARD Y+ ------------------------------------------------------
+            if (act[i] == 1):
+                next_location[i] = (
+                    current_loc[i][0],
+                    round(
+                        current_loc[i][1] +
+                        self.action_step),
+                    current_loc[i][2])
+                if (next_location[i][1] >= self._image_dims[1]):
+                    # print(' trying to go out the image Y+ ',)
+                    next_location[i] = current_loc[i]
+                    go_out[i] = True
+            # RIGHT X+ --------------------------------------------------------
+            if (act[i] == 2):
+                next_location[i] = (
+                    round(
+                        current_loc[i][0] +
+                        self.action_step),
+                    current_loc[i][1],
+                    current_loc[i][2])
+                if next_location[i][0] >= self._image_dims[0]:
+                    # print(' trying to go out the image X+ ',)
+                    next_location[i] = current_loc[i]
+                    go_out[i] = True
+            # LEFT X- ---------------------------------------------------------
+            if act[i] == 3:
+                next_location[i] = (
+                    round(
+                        current_loc[i][0] -
+                        self.action_step),
+                    current_loc[i][1],
+                    current_loc[i][2])
+                if next_location[i][0] <= 0:
+                    # print(' trying to go out the image X- ',)
+                    next_location[i] = current_loc[i]
+                    go_out[i] = True
+            # BACKWARD Y- -----------------------------------------------------
+            if act[i] == 4:
+                next_location[i] = (
+                    current_loc[i][0],
+                    round(
+                        current_loc[i][1] -
+                        self.action_step),
+                    current_loc[i][2])
+                if next_location[i][1] <= 0:
+                    # print(' trying to go out the image Y- ',)
+                    next_location[i] = current_loc[i]
+                    go_out[i] = True
+        return go_out
 
     def getBestLocation(self):
-        ''' get best location with best qvalue from last for locations
+        ''' get best location with best qvalue from last 4 locations
         stored in history
         '''
         best_locations = []
@@ -473,8 +547,7 @@ class MedicalPlayer(gym.Env):
         return best_locations
 
     def _clear_history(self):
-        ''' clear history buffer with current states
-        '''
+        ''' clear history buffer with current states '''
         self._loc_history = [
             [(0,) * self.dims for _ in range(self._history_length)]
             for _ in range(self.agents)]
@@ -500,26 +573,29 @@ class MedicalPlayer(gym.Env):
         """
         crop image data around current location to update what network sees.
         update rectangle
-
         :return: new state
         """
         # initialize screen with zeros - all background
         screen = np.zeros(
             (self.agents,
              self.screen_dims[0],
-             self.screen_dims[1],
-             self.screen_dims[2])).astype(
+             self.screen_dims[1])).astype(
             self._image[0].data.dtype)
+            # (self.agents,
+            #  self.screen_dims[0],
+            #  self.screen_dims[1],
+            #  self.screen_dims[2])).astype(
+            # self._image[0].data.dtype)
 
         for i in range(self.agents):
             # screen uses coordinate system relative to origin (0, 0, 0)
-            screen_xmin, screen_ymin, screen_zmin = 0, 0, 0
-            screen_xmax, screen_ymax, screen_zmax = self.screen_dims
+            # screen_xmin, screen_ymin, screen_zmin = 0, 0, 0
+            # screen_xmax, screen_ymax, screen_zmax = self.screen_dims
+            screen_xmin, screen_ymin = 0, 0
+            screen_xmax, screen_ymax = self.screen_dims
 
             # extract boundary locations using coordinate system relative to
-            # "global" image
-            # width, height, depth in terms of screen coord system
-
+            # "global" image width, height, depth in terms of screen coord system
             if self.xscale % 2:
                 xmin = self._location[i][0] - \
                     int(self.width * self.xscale / 2) - 1
@@ -528,9 +604,9 @@ class MedicalPlayer(gym.Env):
                     int(self.height * self.yscale / 2) - 1
                 ymax = self._location[i][1] + \
                     int(self.height * self.yscale / 2)
-                zmin = self._location[i][2] - \
-                    int(self.depth * self.zscale / 2) - 1
-                zmax = self._location[i][2] + int(self.depth * self.zscale / 2)
+                # zmin = self._location[i][2] - \
+                #     int(self.depth * self.zscale / 2) - 1
+                # zmax = self._location[i][2] + int(self.depth * self.zscale / 2)
             else:
                 xmin = self._location[i][0] - \
                     round(self.width * self.xscale / 2)
@@ -540,10 +616,10 @@ class MedicalPlayer(gym.Env):
                     round(self.height * self.yscale / 2)
                 ymax = self._location[i][1] + \
                     round(self.height * self.yscale / 2)
-                zmin = self._location[i][2] - \
-                    round(self.depth * self.zscale / 2)
-                zmax = self._location[i][2] + \
-                    round(self.depth * self.zscale / 2)
+                # zmin = self._location[i][2] - \
+                #     round(self.depth * self.zscale / 2)
+                # zmax = self._location[i][2] + \
+                #     round(self.depth * self.zscale / 2)
 
             ###########################################################
 
@@ -556,10 +632,10 @@ class MedicalPlayer(gym.Env):
                 ymin = 0
                 screen_ymin = screen_ymax - \
                     len(np.arange(ymin, ymax, self.yscale))
-            if zmin < 0:
-                zmin = 0
-                screen_zmin = screen_zmax - \
-                    len(np.arange(zmin, zmax, self.zscale))
+            # if zmin < 0:
+            #     zmin = 0
+            #     screen_zmin = screen_zmax - \
+            #         len(np.arange(zmin, zmax, self.zscale))
             if xmax > self._image_dims[0]:
                 xmax = self._image_dims[0]
                 screen_xmax = screen_xmin + \
@@ -568,32 +644,31 @@ class MedicalPlayer(gym.Env):
                 ymax = self._image_dims[1]
                 screen_ymax = screen_ymin + \
                     len(np.arange(ymin, ymax, self.yscale))
-            if zmax > self._image_dims[2]:
-                zmax = self._image_dims[2]
-                screen_zmax = screen_zmin + \
-                    len(np.arange(zmin, zmax, self.zscale))
+            # if zmax > self._image_dims[2]:
+            #     zmax = self._image_dims[2]
+            #     screen_zmax = screen_zmin + \
+            #         len(np.arange(zmin, zmax, self.zscale))
 
             # crop image data to update what network sees
             # image coordinate system becomes screen coordinates
             # scale can be thought of as a stride
             screen[i,
                    screen_xmin:screen_xmax,
-                   screen_ymin:screen_ymax,
-                   screen_zmin:screen_zmax] = self._image[i].data[
-                xmin:xmax:self.xscale,
-                ymin:ymax:self.yscale,
-                zmin:zmax:self.zscale]
-
+                   screen_ymin:screen_ymax] = self._image[i].data[
+                                              xmin:xmax:self.xscale,
+                                              ymin:ymax:self.yscale]
+                   # screen_zmin:screen_zmax]
+                # zmin:zmax:self.zscale]
             ###########################################################
             # update rectangle limits from input image coordinates
             # this is what the network sees
-            self.rectangle[i] = Rectangle(xmin, xmax,
-                                          ymin, ymax,
-                                          zmin, zmax)
+            self.rectangle[i] = Rectangle2d(xmin, xmax,
+                                          ymin, ymax)
+                                          #zmin, zmax)
         return screen
 
     # Should the argument agent not be renamed to image rather?
-    def get_plane(self, z=0, agent=0):
+    def get_plane(self, z=0, agent=0):  #No need to get plane for 2D
         return self._image[agent].data[:, :, z]
 
     def _calc_reward(self, current_loc, next_loc, agent):
@@ -617,7 +692,8 @@ class MedicalPlayer(gym.Env):
             freq = counter.most_common()
             # At beginning of episodes, history is prefilled with (0, 0, 0),
             # thus do not count their frequency
-            if freq[0][0] == (0, 0, 0):
+            # if freq[0][0] == (0, 0, 0):
+            if freq[0][0] == (0, 0):
                 if len(freq) < self.oscillations_allowed:
                     return False
                 if freq[1][1] < self.oscillations_allowed:
@@ -628,13 +704,19 @@ class MedicalPlayer(gym.Env):
 
     def get_action_meanings(self):
         """ return array of integers for actions"""
+        # ACTION_MEANING = {
+        #     1: "UP",  # MOVE Z+
+        #     2: "FORWARD",  # MOVE Y+
+        #     3: "RIGHT",  # MOVE X+
+        #     4: "LEFT",  # MOVE X-
+        #     5: "BACKWARD",  # MOVE Y-
+        #     6: "DOWN",  # MOVE Z-
+        # }
         ACTION_MEANING = {
-            1: "UP",  # MOVE Z+
             2: "FORWARD",  # MOVE Y+
             3: "RIGHT",  # MOVE X+
             4: "LEFT",  # MOVE X-
             5: "BACKWARD",  # MOVE Y-
-            6: "DOWN",  # MOVE Z-
         }
         return [ACTION_MEANING[i] for i in self.actions]
 
@@ -643,7 +725,7 @@ class MedicalPlayer(gym.Env):
         """
         return screen dimensions
         """
-        return (self.width, self.height, self.depth)
+        return (self.width, self.height) # self.depth)
 
     def lives(self):
         return None
@@ -659,7 +741,7 @@ class MedicalPlayer(gym.Env):
         planes = np.flipud(
             np.transpose(
                 self.get_plane(
-                    self._location[0][2],
+                    self._location[0][2],   #Change for 2D visualization
                     agent=0)))
         shape = np.shape(planes)
 
@@ -679,7 +761,6 @@ class MedicalPlayer(gym.Env):
                     self.get_plane(
                         current_points[i][2],
                         agent=i)))
-
             if i > 0:
                 # get image in z-axis
                 planes = np.hstack((planes, current_plane))
@@ -904,7 +985,6 @@ class FrameStack(gym.Wrapper):
 
 # object is not in the image: oscillation occurs at points where max(q)>4
 
-
 ## Other Notes:
 
     DeepMind's original DQN paper
@@ -931,6 +1011,4 @@ class FrameStack(gym.Wrapper):
     I think if you want to reproduce the behavior of the original DQN paper,
     the easiest will be disabling frame skip and color averaging in
     ALEEnvironment then construct the mechanism on agent side.
-
-
 """

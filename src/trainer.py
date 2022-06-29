@@ -8,17 +8,11 @@ from tqdm import tqdm
 
 class Trainer(object):
     def __init__(self,
-                 env,
-                 eval_env=None,
-                 image_size=(45, 45, 45),
-                 update_frequency=4,
-                 replay_buffer_size=1e6,
-                 init_memory_size=5e4,
-                 max_episodes=100,
-                 steps_per_episode=50,
-                 eps=1,
-                 min_eps=0.1,
-                 delta=0.001,
+                 env, eval_env=None,
+                 image_size=(45, 45, 45), update_frequency=4,
+                 replay_buffer_size=1e6,init_memory_size=5e4,
+                 max_episodes=100,steps_per_episode=50,
+                 eps=1, min_eps=0.1,delta=0.001,
                  batch_size=4,
                  gamma=0.9,
                  number_actions=6,
@@ -55,14 +49,10 @@ class Trainer(object):
             self.image_size,
             self.frame_history,
             self.agents)
-        self.dqn = DQN(
-            self.agents,
-            self.frame_history,
-            logger=logger,
-            type=model_name,
+        self.dqn = DQN(self.agents, self.frame_history,
+            logger=logger, type=model_name,number_actions=number_actions,
             collective_rewards=team_reward,
-            attention=attention,
-            lr=lr,
+            attention=attention,lr=lr,
             scheduler_gamma=scheduler_gamma,
             scheduler_step_size=scheduler_step_size)
         self.dqn.q_network.train(True)
@@ -214,3 +204,5 @@ class Trainer(object):
         idx = torch.max(q_vals, -1)[1]
         greedy_steps = np.array(idx, dtype=np.int32).flatten()
         return greedy_steps, q_vals.data.numpy()
+
+

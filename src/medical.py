@@ -73,7 +73,6 @@ class MedicalPlayer(gym.Env):
         self.logger = logger
         # inits stat counters
         self.reset_stat()
-
         # counter to limit number of steps per episodes
         self.cnt = 0
         # maximum number of frames (steps) per episodes
@@ -264,10 +263,8 @@ class MedicalPlayer(gym.Env):
         else:
             self.cur_dist = [
                 self.calcDistance(
-                    self._location[i],
-                    self._target_loc[i],
-                    self.spacing) for i in range(
-                    self.agents)]
+                    self._location[i], self._target_loc[i],
+                    self.spacing) for i in range(self.agents)]
 
     def calcDistance(self, points1, points2, spacing=(1, 1, 1)):
         """ calculate the distance between two points in mm"""
@@ -400,65 +397,45 @@ class MedicalPlayer(gym.Env):
         self._qvalues = q_values
         current_loc = self._location
         next_location = copy.deepcopy(current_loc)
-
         self.terminal = [False] * self.agents
         go_out = [False] * self.agents
-
         # agent i movement
         for i in range(self.agents):
             # UP Z+ -----------------------------------------------------------
             if (act[i] == 0):
-                next_location[i] = (
-                    current_loc[i][0], current_loc[i][1], round(
+                next_location[i] = (current_loc[i][0], current_loc[i][1], round(
                         current_loc[i][2] + self.action_step))
                 if (next_location[i][2] >= self._image_dims[2]):
                     # print(' trying to go out the image Z+ ',)
                     next_location[i] = current_loc[i]
                     go_out[i] = True
-
             # FORWARD Y+ ------------------------------------------------------
             if (act[i] == 1):
-                next_location[i] = (
-                    current_loc[i][0],
-                    round(
-                        current_loc[i][1] +
-                        self.action_step),
-                    current_loc[i][2])
+                next_location[i] = (current_loc[i][0],
+                    round(current_loc[i][1] +self.action_step),current_loc[i][2])
                 if (next_location[i][1] >= self._image_dims[1]):
                     # print(' trying to go out the image Y+ ',)
                     next_location[i] = current_loc[i]
                     go_out[i] = True
             # RIGHT X+ --------------------------------------------------------
             if (act[i] == 2):
-                next_location[i] = (
-                    round(
-                        current_loc[i][0] +
-                        self.action_step),
-                    current_loc[i][1],
-                    current_loc[i][2])
+                next_location[i] = (round(current_loc[i][0] + self.action_step),
+                    current_loc[i][1],current_loc[i][2])
                 if next_location[i][0] >= self._image_dims[0]:
                     # print(' trying to go out the image X+ ',)
                     next_location[i] = current_loc[i]
                     go_out[i] = True
             # LEFT X- ---------------------------------------------------------
             if act[i] == 3:
-                next_location[i] = (
-                    round(
-                        current_loc[i][0] -
-                        self.action_step),
-                    current_loc[i][1],
-                    current_loc[i][2])
+                next_location[i] = (round(current_loc[i][0] - self.action_step),
+                    current_loc[i][1],current_loc[i][2])
                 if next_location[i][0] <= 0:
                     # print(' trying to go out the image X- ',)
                     next_location[i] = current_loc[i]
                     go_out[i] = True
             # BACKWARD Y- -----------------------------------------------------
             if act[i] == 4:
-                next_location[i] = (
-                    current_loc[i][0],
-                    round(
-                        current_loc[i][1] -
-                        self.action_step),
+                next_location[i] = (current_loc[i][0], round(current_loc[i][1] - self.action_step),
                     current_loc[i][2])
                 if next_location[i][1] <= 0:
                     # print(' trying to go out the image Y- ',)
@@ -466,8 +443,7 @@ class MedicalPlayer(gym.Env):
                     go_out[i] = True
             # DOWN Z- ---------------------------------------------------------
             if act[i] == 5:
-                next_location[i] = (
-                    current_loc[i][0], current_loc[i][1], round(
+                next_location[i] = (current_loc[i][0], current_loc[i][1], round(
                         current_loc[i][2] - self.action_step))
                 if next_location[i][2] <= 0:
                     # print(' trying to go out the image Z- ',)
@@ -488,11 +464,8 @@ class MedicalPlayer(gym.Env):
         for i in range(self.agents):
             # FORWARD Y+ ------------------------------------------------------
             if (act[i] == 1):
-                next_location[i] = (
-                    current_loc[i][0],
-                    round(
-                        current_loc[i][1] +
-                        self.action_step) )
+                next_location[i] = (current_loc[i][0],
+                    round(current_loc[i][1] + self.action_step))
                 if (next_location[i][1] >= self._image_dims[1]):
                     # print(' trying to go out the image Y+ ',)
                     next_location[i] = current_loc[i]
@@ -500,10 +473,8 @@ class MedicalPlayer(gym.Env):
             # RIGHT X+ --------------------------------------------------------
             if (act[i] == 2):
                 next_location[i] = (
-                    round(
-                        current_loc[i][0] +
-                        self.action_step),
-                    current_loc[i][1] )
+                    round(current_loc[i][0] +self.action_step),
+                    current_loc[i][1])
                 if next_location[i][0] >= self._image_dims[0]:
                     # print(' trying to go out the image X+ ',)
                     next_location[i] = current_loc[i]
@@ -511,21 +482,16 @@ class MedicalPlayer(gym.Env):
             # LEFT X- ---------------------------------------------------------
             if act[i] == 3:
                 next_location[i] = (
-                    round(
-                        current_loc[i][0] -
-                        self.action_step),
-                    current_loc[i][1] )
+                    round(current_loc[i][0] - self.action_step),
+                    current_loc[i][1])
                 if next_location[i][0] <= 0:
                     # print(' trying to go out the image X- ',)
                     next_location[i] = current_loc[i]
                     go_out[i] = True
             # BACKWARD Y- -----------------------------------------------------
             if act[i] == 4:
-                next_location[i] = (
-                    current_loc[i][0],
-                    round(
-                        current_loc[i][1] -
-                        self.action_step))
+                next_location[i] = (current_loc[i][0],
+                    round(current_loc[i][1] - self.action_step))
                 if next_location[i][1] <= 0:
                     # print(' trying to go out the image Y- ',)
                     next_location[i] = current_loc[i]
@@ -555,8 +521,7 @@ class MedicalPlayer(gym.Env):
             for _ in range(self.agents)]
 
     def _update_history(self):
-        ''' update history buffer with current states
-        '''
+        ''' update history buffer with current states '''
         for i in range(self.agents):
             # update location history
             self._loc_history[i].pop(0)
@@ -721,9 +686,7 @@ class MedicalPlayer(gym.Env):
 
     @property
     def getScreenDims(self):
-        """
-        return screen dimensions
-        """
+        """ return screen dimensions"""
         return (self.width, self.height) # self.depth)
 
     def lives(self):
@@ -737,30 +700,33 @@ class MedicalPlayer(gym.Env):
 
     def display(self, return_rgb_array=False):
         # TODO: change to 2D viz
+        two_d = True
         # Initializations
-        planes = np.flipud(
-            np.transpose(
-                self.get_plane(
-                    self._location[0][2],   #Change for 2D visualization
-                    agent=0)))
+        if not two_d:
+            planes = np.flipud(
+                np.transpose(self.get_plane(self._location[0][2], agent=0)))
+        else:
+            planes = np.flipud(np.transpose(self._image[0].data))
+            #planes = self._image[0].data
         shape = np.shape(planes)
 
         target_points = []
         current_points = []
-
         for i in range(self.agents):
             # get landmarks
-            current_points.append(self._location[i])
+            current_points.append(self._location[i])  # (x,y)
             if self.task != 'play':
                 target_points.append(self._target_loc[i])
             else:
                 target_points.append(None)
             # get current plane
-            current_plane = np.flipud(
-                np.transpose(
-                    self.get_plane(
-                        current_points[i][2],
-                        agent=i)))
+            if not two_d:
+                current_plane = np.flipud(
+                    np.transpose(self.get_plane(current_points[i][2], agent=i)))
+            else:
+                current_plane = np.flipud(np.transpose(self._image[i].data))
+                #current_plane = self._image[i].data
+
             if i > 0:
                 # get image in z-axis
                 planes = np.hstack((planes, current_plane))
@@ -780,17 +746,15 @@ class MedicalPlayer(gym.Env):
         # planes = np.array(planes)
         # img = cv2.cvtColor(planes.reshape(shape[0]*shape[1], shape[2]),
         #                    cv2.COLOR_GRAY2RGB)
-
         # rescale image
         # INTER_NEAREST, INTER_LINEAR, INTER_AREA, INTER_CUBIC, INTER_LANCZOS4
+
         scale_y = 1
         scale_x = 1
         img = cv2.resize(
             planes,
             (int(scale_y * planes.shape[1]), int(scale_x * planes.shape[0])),
-            interpolation=cv2.INTER_LINEAR
-        )
-
+            interpolation=cv2.INTER_LINEAR)
         img = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
 
         # skip if there is a viewer open
@@ -804,17 +768,24 @@ class MedicalPlayer(gym.Env):
         # display image
         self.viewer.draw_image(img)
 
-        # plot landmarks
+        # plot landmarks: Change if not transposing
         for i in range(self.agents):
-            # get landmarks - correct location if image is flipped and
-            # tranposed
-            current_point = (shape[0] - current_points[i][1] + shifts_y[i],
+            # get landmarks - correct location if image is flipped and transposed
+            if not two_d:
+                current_point = (shape[0] - current_points[i][1] + shifts_y[i],
                              current_points[i][0] + shifts_x[i],
                              current_points[i][2])
+            else:
+                current_point = (shape[0] - current_points[i][1] + shifts_y[i],
+                                 current_points[i][0] + shifts_x[i])
             if self.task != 'play':
-                target_point = (shape[0] - target_points[i][1] + shifts_y[i],
+                if not two_d:
+                    target_point = (shape[0] - target_points[i][1] + shifts_y[i],
                                 target_points[i][0] + shifts_x[i],
                                 target_points[i][2])
+                else:
+                    target_point = (shape[0] - target_points[i][1] + shifts_y[i],
+                                    target_points[i][0] + shifts_x[i])
             # draw current point
             self.viewer.draw_circle(radius=scale_x * 1,
                                     pos_y=scale_y * current_point[1],
@@ -830,11 +801,9 @@ class MedicalPlayer(gym.Env):
             self.viewer.display_text('Agent ' +
                                      str(i), color=(204, 204, 0, 255),
                                      x=scale_y *
-                                     (shape[0] -
-                                      self.rectangle[i].ymin +
-                                         shifts_y[i]), y=scale_x *
-                                     (self.rectangle[i].xmin +
-                                         shifts_x[i]))
+                                     (shape[0] - self.rectangle[i].ymin + shifts_y[i]),
+                                     y=scale_x *
+                                    (self.rectangle[i].xmin + shifts_x[i]))
             # display info
             text = 'Spacing ' + str(self.xscale)
             self.viewer.display_text(text, color=(204, 204, 0, 255),
@@ -846,27 +815,26 @@ class MedicalPlayer(gym.Env):
             if self.task != 'play':
                 # draw a transparent circle around target point with variable
                 # radius based on the difference z-direction
-                diff_z = scale_x * abs(current_point[2] - target_point[2])
-                self.viewer.draw_circle(radius=diff_z,
+                # diff_z = scale_x * abs(current_point[2] - target_point[2])
+                #print("Target coordinates: {},{}".format(target_point[0],target_point[1]))
+                self.viewer.draw_circle(radius=scale_x * 4,
                                         pos_x=scale_x * target_point[0],
-                                        pos_y=scale_y * target_point[1],
-                                        color=(1.0, 0.0, 0.0, 0.2))
+                                         pos_y=scale_y * target_point[1],
+                                         color=(1.0, 0.0, 0.0, 0.2))
                 # draw target point
                 self.viewer.draw_circle(radius=scale_x * 1,
                                         pos_x=scale_x * target_point[0],
                                         pos_y=scale_y * target_point[1],
-                                        color=(1.0, 0.0, 0.0, 1.0))
+                                        color=(204.0, 0.0, 0.0, 255.0))
                 # display info
-                color = (
-                    0, 204, 0, 255) if self.reward[i] > 0 else (
-                    204, 0, 0, 255)
+                color = (0, 204, 0, 255) if self.reward[i] > 0 else (204, 0, 0, 255)
+
                 text = 'Error - ' + 'Agent ' + \
                     str(i) + ' - ' + str(round(self.cur_dist[i], 3)) + 'mm'
                 self.viewer.display_text(
                     text, color=color,
                     x=scale_y * (int(1.0 * shape[0]) - 15 + shifts_y[i]),
                     y=scale_x * (8 + shifts_x[i]))
-
         # -----------------------------------------------------------------
 
         # render and wait (viz) time between frames

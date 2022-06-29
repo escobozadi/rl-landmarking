@@ -18,7 +18,7 @@ __all__ = [
     'NiftiImage']
 
 
-def getLandmarksFromTXTFile(file, split=','):
+def getLandmarksFromTXTFile(file, split=' '):
     """
     Extract each landmark point line by line from a text file, and return
     vector containing all landmarks.
@@ -26,7 +26,11 @@ def getLandmarksFromTXTFile(file, split=','):
     with open(file) as fp:
         landmarks = []
         for i, line in enumerate(fp):
-            landmarks.append([float(k) for k in line.split(split)])
+            ln = []
+            for k in line.split(split):
+                if k != "":
+                    ln.append(float(k))
+            landmarks.append(ln)
 
         landmarks = np.asarray(landmarks)
         landmarks = landmarks.reshape((-1, landmarks.shape[1]))
@@ -100,14 +104,15 @@ class filesListJointUSLandmark(object): #2D joint US images
                     # transform landmarks to image space if they are in physical space
                     landmark_file = self.landmark_files[idx]
                     landmark = getLandmarksFromTXTFile(landmark_file)  # one (x,y) landmark for tendon
-                    landmarks_round = [np.round(landmark[landmark_ids[i] % 15])
-                                 for i in range(self.agents)]
+                    landmark[0][0] *= image.dims[0]
+                    landmark[0][1] *= image.dims[1]
+                    landmarks_round = [np.round(landmark[landmark_ids[i] % 15])for i in range(self.agents)]
                 else:
                     landmarks_round = None
                 # extract filename from path, remove .png extension
                 image_filenames = [self.image_files[idx][:-4]] * self.agents
                 images = [image] * self.agents
-                sitk_image = sitk.GetImageFromArray(image.data) # sitk image from numpy array
+                sitk_image = sitk.GetImageFromArray(image.data)  # sitk image from numpy array
                 yield (images, landmarks_round, image_filenames,
                        sitk_image.GetSpacing())
 
@@ -136,9 +141,8 @@ class filesListBrainMRLandmark(object):
             self.landmark_files = [
                 line.split('\n')[0] for line in open(
                     files_list[1].name)]
-            assert len(
-                self.image_files) == len(
-                self.landmark_files), """number of image files is not equal to
+            assert \
+                len(self.image_files) == len(self.landmark_files),"""number of image files is not equal to
                 number of landmark files"""
 
     @property

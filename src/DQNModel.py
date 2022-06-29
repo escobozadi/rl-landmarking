@@ -11,36 +11,19 @@ class Network3D(nn.Module):
         self.device = torch.device(
             "cuda" if torch.cuda.is_available() else "cpu")
 
-        self.conv0 = nn.Conv3d(
-            in_channels=frame_history,
-            out_channels=32,
-            kernel_size=(5, 5, 5),
-            padding=1).to(
-            self.device)
+        self.conv0 = nn.Conv3d(in_channels=frame_history,out_channels=32,kernel_size=(5, 5, 5),padding=1).to(self.device)
         self.maxpool0 = nn.MaxPool3d(kernel_size=(2, 2, 2)).to(self.device)
         self.prelu0 = nn.PReLU().to(self.device)
-        self.conv1 = nn.Conv3d(
-            in_channels=32,
-            out_channels=32,
-            kernel_size=(5, 5, 5),
-            padding=1).to(
-            self.device)
+
+        self.conv1 = nn.Conv3d(in_channels=32,out_channels=32,kernel_size=(5, 5, 5),padding=1).to(self.device)
         self.maxpool1 = nn.MaxPool3d(kernel_size=(2, 2, 2)).to(self.device)
         self.prelu1 = nn.PReLU().to(self.device)
-        self.conv2 = nn.Conv3d(
-            in_channels=32,
-            out_channels=64,
-            kernel_size=(4, 4, 4),
-            padding=1).to(
-            self.device)
+
+        self.conv2 = nn.Conv3d(in_channels=32,out_channels=64,kernel_size=(4, 4, 4),padding=1).to(self.device)
         self.maxpool2 = nn.MaxPool3d(kernel_size=(2, 2, 2)).to(self.device)
         self.prelu2 = nn.PReLU().to(self.device)
-        self.conv3 = nn.Conv3d(
-            in_channels=64,
-            out_channels=64,
-            kernel_size=(3, 3, 3),
-            padding=0).to(
-            self.device)
+        self.conv3 = nn.Conv3d(in_channels=64,out_channels=64,kernel_size=(3, 3, 3),padding=0).to(self.device)
+
         self.prelu3 = nn.PReLU().to(self.device)
 
         self.fc1 = nn.ModuleList(
@@ -96,6 +79,7 @@ class Network3D(nn.Module):
         output = torch.stack(output, dim=1)
         return output.cpu()
 
+########################################################################################
 
 class CommNet(nn.Module):
 
@@ -106,43 +90,54 @@ class CommNet(nn.Module):
         self.frame_history = frame_history
         self.device = torch.device(
             "cuda" if torch.cuda.is_available() else "cpu")
+        if number_actions == 6: #3D
+            self.conv0 = nn.Conv3d(in_channels=frame_history, out_channels=32, kernel_size=(5, 5, 5),padding=1).to(self.device)
+            self.maxpool0 = nn.MaxPool3d(kernel_size=(2, 2, 2)).to(self.device)
+            self.conv1 = nn.Conv3d(in_channels=32, out_channels=32, kernel_size=(5, 5, 5), padding=1).to(self.device)
+            self.maxpool1 = nn.MaxPool3d(kernel_size=(2, 2, 2)).to(self.device)
+            self.conv2 = nn.Conv3d(in_channels=32, out_channels=64, kernel_size=(4, 4, 4), padding=1).to(self.device)
+            self.maxpool2 = nn.MaxPool3d(kernel_size=(2, 2, 2)).to(self.device)
+            self.conv3 = nn.Conv3d(in_channels=64, out_channels=64, kernel_size=(3, 3, 3), padding=0).to(self.device)
+        else: #2D
+            # (64,1,4,61,61) conv out: (Size+2*padd-dil*(k-1)-1)/s)+1, round down
+            self.conv0 = nn.Conv2d(
+                in_channels=frame_history,
+                out_channels=32,
+                kernel_size=(5, 5),
+                padding=1).to(self.device)  #(32,61-2,59)
+            self.maxpool0 = nn.MaxPool2d(
+                kernel_size=(2, 2)).to(self.device) #(32,(59-2)/2 +1,29)
 
-        self.conv0 = nn.Conv3d(
-            in_channels=frame_history,
-            out_channels=32,
-            kernel_size=(5, 5, 5),
-            padding=1).to(
-            self.device)
-        self.maxpool0 = nn.MaxPool3d(kernel_size=(2, 2, 2)).to(self.device)
+            self.conv1 = nn.Conv2d(
+                in_channels=32,
+                out_channels=32,
+                kernel_size=(5, 5),
+                padding=1).to(self.device) #(32,27,27)
+            self.maxpool1 = nn.MaxPool2d(
+                kernel_size=(2, 2)).to(self.device) #(32,13,13)
+
+            self.conv2 = nn.Conv2d(
+                in_channels=32,
+                out_channels=64,
+                kernel_size=(4, 4), padding=1).to(self.device) #(64,13+2-4+1,12)
+            self.maxpool2 = nn.MaxPool2d(
+                kernel_size=(2, 2)).to(self.device) #(64,6,6)
+
+            self.conv3 = nn.Conv2d(
+                in_channels=64,
+                out_channels=64,
+                kernel_size=(3, 3),
+                padding=0).to(self.device)  #(64,4,4)
+
         self.prelu0 = nn.PReLU().to(self.device)
-        self.conv1 = nn.Conv3d(
-            in_channels=32,
-            out_channels=32,
-            kernel_size=(5, 5, 5),
-            padding=1).to(
-            self.device)
-        self.maxpool1 = nn.MaxPool3d(kernel_size=(2, 2, 2)).to(self.device)
         self.prelu1 = nn.PReLU().to(self.device)
-        self.conv2 = nn.Conv3d(
-            in_channels=32,
-            out_channels=64,
-            kernel_size=(4, 4, 4),
-            padding=1).to(
-            self.device)
-        self.maxpool2 = nn.MaxPool3d(kernel_size=(2, 2, 2)).to(self.device)
         self.prelu2 = nn.PReLU().to(self.device)
-        self.conv3 = nn.Conv3d(
-            in_channels=64,
-            out_channels=64,
-            kernel_size=(3, 3, 3),
-            padding=0).to(
-            self.device)
         self.prelu3 = nn.PReLU().to(self.device)
 
         self.fc1 = nn.ModuleList(
             [nn.Linear(
-                in_features=512 * 2,
-                out_features=256).to(
+                in_features= 64*4*4 * 2,
+                out_features= 256).to(
                 self.device) for _ in range(
                 self.agents)])
         self.prelu4 = nn.ModuleList(
@@ -185,30 +180,31 @@ class CommNet(nn.Module):
         # Shared layers
         input2 = []
         for i in range(self.agents):
-            x = input1[:, i]
-            x = self.conv0(x)
+            x = input1[:, i]    # (64,1,4,61,61)
+            x = self.conv0(x)   # (64,1,32,59,59)
             x = self.prelu0(x)
-            x = self.maxpool0(x)
-            x = self.conv1(x)
+            x = self.maxpool0(x)    #(64,1,32,30,30)
+            x = self.conv1(x)       #(32,27,27)
             x = self.prelu1(x)
-            x = self.maxpool1(x)
-            x = self.conv2(x)
+            x = self.maxpool1(x)    #(32,13,13)
+            x = self.conv2(x)       #(64,12,12)
             x = self.prelu2(x)
-            x = self.maxpool2(x)
-            x = self.conv3(x)
+            x = self.maxpool2(x)    #(64,6,6)
+            x = self.conv3(x)       #(64,4,4)
             x = self.prelu3(x)
-            x = x.view(-1, 512)
+            x = x.view(-1,64*4*4)     #(2,512)
             input2.append(x)
-        input2 = torch.stack(input2, dim=1)
+
+        input2 = torch.stack(input2, dim=1)  # batch-size, agents,
          
         # Communication layers
         if self.attention:
             comm = torch.cat([torch.sum((input2.transpose(1, 2) * nn.Softmax(dim=0)(self.comm_att1[i])), axis=2).unsqueeze(0)
                               for i in range(self.agents)])
-            
         else:
             comm = torch.mean(input2, axis=1)
             comm = comm.unsqueeze(0).repeat(self.agents, *[1]*len(comm.shape))
+        
         input3 = []
         for i in range(self.agents):
             x = input2[:, i]
@@ -235,6 +231,7 @@ class CommNet(nn.Module):
         else:
             comm = torch.mean(input4, axis=1)
             comm = comm.unsqueeze(0).repeat(self.agents, *[1]*len(comm.shape))
+        
         output = []
         for i in range(self.agents):
             x = input4[:, i]
@@ -244,21 +241,12 @@ class CommNet(nn.Module):
 
         return output.cpu()
 
-
 class DQN:
     # The class initialisation function.
-    def __init__(
-            self,
-            agents,
-            frame_history,
-            logger,
-            number_actions=6,
-            type="Network3d",
-            collective_rewards=False,
-            attention=False,
-            lr=1e-3,
-            scheduler_gamma=0.9,
-            scheduler_step_size=100):
+    def __init__(self,agents,frame_history,logger,number_actions=6,
+            type="Network3d", collective_rewards=False,attention=False,
+            lr=1e-3,scheduler_gamma=0.9,scheduler_step_size=100):
+
         self.agents = agents
         self.number_actions = number_actions
         self.frame_history = frame_history
@@ -355,7 +343,8 @@ class DQN:
         network_prediction = self.q_network.forward(curr_state).view(
             -1, self.agents, self.number_actions)
         isNotOver = (torch.ones(*terminal.shape) - terminal)
-        # Bellman equation
+
+        # Bellman equation, discount_factor=gamma
         batch_labels_tensor = rewards + isNotOver * \
             (discount_factor * max_target_net.detach())
 

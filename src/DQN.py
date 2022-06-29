@@ -276,6 +276,7 @@ if __name__ == '__main__':
                           replay_buffer_size=args.memory_size,
                           init_memory_size=init_memory_size,
                           gamma=args.discount,
+                          number_actions=4,
                           steps_per_episode=args.steps_per_episode,
                           max_episodes=args.max_episodes,
                           delta=args.delta,

@@ -19,23 +19,30 @@ class Evaluator(object):
         if fixed_spawn is None:
             num_runs = 1 
         else:
-            # fixed_spawn should be, for example, [0.5 , 0.5 , 0.5, 0, 0, 0] for 2 runs
+            # fixed_spawn should be, for example, [0.5 , 0.5 , 0, 0] for 2 runs in 2D
             # In the first run agents spawn in the middle and in the second they will spawn from the corner
-            fixed_spawn = np.array(fixed_spawn).reshape((-1, 3)) # 3 dimensions
+            fixed_spawn = np.array(fixed_spawn).reshape((-1, 2))  # 2 dimensions
             num_runs = fixed_spawn.shape[0]
             # Set all the agents to the same spawn point
             fixed_spawn = np.stack([fixed_spawn for _ in range(self.agents)], axis=-1)
 
         num_files = self.env.files.num_files
         self.model.train(False)
+        # headers = ["number"] + list(chain.from_iterable(zip(
+        #     [f"Filename {i}" for i in range(self.agents)],
+        #     [f"Agent {i} pos x" for i in range(self.agents)],
+        #     [f"Agent {i} pos y" for i in range(self.agents)],
+        #     [f"Agent {i} pos z" for i in range(self.agents)],
+        #     [f"Landmark {i} pos x" for i in range(self.agents)],
+        #     [f"Landmark {i} pos y" for i in range(self.agents)],
+        #     [f"Landmark {i} pos z" for i in range(self.agents)],
+        #     [f"Distance {i}" for i in range(self.agents)])))
         headers = ["number"] + list(chain.from_iterable(zip(
             [f"Filename {i}" for i in range(self.agents)],
             [f"Agent {i} pos x" for i in range(self.agents)],
             [f"Agent {i} pos y" for i in range(self.agents)],
-            [f"Agent {i} pos z" for i in range(self.agents)],
             [f"Landmark {i} pos x" for i in range(self.agents)],
             [f"Landmark {i} pos y" for i in range(self.agents)],
-            [f"Landmark {i} pos z" for i in range(self.agents)],
             [f"Distance {i}" for i in range(self.agents)])))
         self.logger.write_locations(headers)
         distances = []
@@ -46,13 +53,11 @@ class Evaluator(object):
                     [info[f"filename_{i}"] for i in range(self.agents)],
                     [info[f"agent_xpos_{i}"] for i in range(self.agents)],
                     [info[f"agent_ypos_{i}"] for i in range(self.agents)],
-                    [info[f"agent_zpos_{i}"] for i in range(self.agents)],
                     [info[f"landmark_xpos_{i}"] for i in range(self.agents)],
                     [info[f"landmark_ypos_{i}"] for i in range(self.agents)],
-                    [info[f"landmark_zpos_{i}"] for i in range(self.agents)],
                     [info[f"distError_{i}"] for i in range(self.agents)])))
-                distances.append([info[f"distError_{i}"]
-                                for i in range(self.agents)])
+                distances.append([info[f"distError_{i}"] for i in range(self.agents)])
+
                 self.logger.write_locations(row)
         mean = np.mean(distances, 0)
         std = np.std(distances, 0, ddof=1)
@@ -68,8 +73,8 @@ class Evaluator(object):
             Run a full episode, mapping observation to action,
             using greedy policy.
             """
-            inputs = torch.tensor(obs_stack).permute(
-                0, 4, 1, 2, 3).unsqueeze(0)
+            # from (agent, imagex, imagey, framehist) -> (agent, framehist, imagex, imagey)
+            inputs = torch.tensor(obs_stack).permute(0, 3, 1, 2).unsqueeze(0)
             q_vals = self.model.forward(inputs).detach().squeeze(0)
             idx = torch.max(q_vals, -1)[1]
             greedy_steps = np.array(idx, dtype=np.int32).flatten()
@@ -90,7 +95,10 @@ class Evaluator(object):
                     info['distError_' + str(i)] for i in range(self.agents)]
             if render:
                 self.env.render()
+                # self.env.viewer.render()
             for i in range(self.agents):
                 if not isOver[i]:
                     sum_r[i] += r[i]
         return sum_r, start_dists, q_values, info
+
+

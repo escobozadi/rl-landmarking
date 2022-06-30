@@ -30,10 +30,9 @@ warnings.warn = warn
 warnings.simplefilter("ignore", category=PendingDeprecationWarning)
 
 _ALE_LOCK = threading.Lock()
-
-Rectangle = namedtuple(
-    'Rectangle', [
-        'xmin', 'xmax', 'ymin', 'ymax', 'zmin', 'zmax'])
+# Rectangle = namedtuple(
+#     'Rectangle', [
+#         'xmin', 'xmax', 'ymin', 'ymax', 'zmin', 'zmax'])
 
 Rectangle2d = namedtuple(
     'Rectangle', [
@@ -687,7 +686,7 @@ class MedicalPlayer(gym.Env):
     @property
     def getScreenDims(self):
         """ return screen dimensions"""
-        return (self.width, self.height) # self.depth)
+        return (self.width,self.height)  # self.depth)
 
     def lives(self):
         return None

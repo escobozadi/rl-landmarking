@@ -10,22 +10,18 @@ class Trainer(object):
     def __init__(self,
                  env, eval_env=None,
                  image_size=(45, 45, 45), update_frequency=4,
-                 replay_buffer_size=1e6,init_memory_size=5e4,
-                 max_episodes=100,steps_per_episode=50,
-                 eps=1, min_eps=0.1,delta=0.001,
-                 batch_size=4,
-                 gamma=0.9,
-                 number_actions=6,
-                 frame_history=4,
+                 replay_buffer_size=1e6, init_memory_size=5e4,
+                 max_episodes=100, steps_per_episode=50,
+                 eps=1, min_eps=0.1, delta=0.001,
+                 batch_size=4, gamma=0.9,
+                 number_actions=6, frame_history=4,
                  model_name="CommNet",
                  logger=None,
                  train_freq=1,
-                 team_reward=False,
-                 attention=False,
+                 team_reward=False, attention=False,
                  lr=1e-3,
                  scheduler_gamma=0.5,
-                 scheduler_step_size=100
-                ):
+                 scheduler_step_size=100):
         self.env = env
         self.eval_env = eval_env
         self.agents = env.agents
@@ -57,10 +53,8 @@ class Trainer(object):
             scheduler_step_size=scheduler_step_size)
         self.dqn.q_network.train(True)
         self.evaluator = Evaluator(eval_env,
-                                   self.dqn.q_network,
-                                   logger,
-                                   self.agents,
-                                   steps_per_episode)
+                                   self.dqn.q_network, logger,
+                                   self.agents, steps_per_episode)
         self.logger = logger
         self.train_freq = train_freq
 
@@ -72,7 +66,7 @@ class Trainer(object):
         epoch_distances = []
         while episode <= self.max_episodes:
             # Reset the environment for the start of the episode.
-            obs = self.env.reset()
+            obs = self.env.reset()  # current state, (agents, x-area, y-area)
             self.buffer._hist.clear()
             terminal = [False for _ in range(self.agents)]
             losses = []

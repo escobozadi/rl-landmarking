@@ -204,9 +204,9 @@ class MedicalPlayer(gym.Env):
             self.action_step = 6
             self.xscale = 2 self.yscale = 2 self.zscale = 2'''
             #Joint 2D
-            self.action_step = 6
-            self.xscale = 2
-            self.yscale = 2
+            self.action_step = 8
+            self.xscale = 4
+            self.yscale = 4
         else:
             # self.action_step = 1
             # self.xscale = 1  self.yscale = 1  self.zscale = 1

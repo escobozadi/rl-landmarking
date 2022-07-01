@@ -51,11 +51,8 @@ class SimpleImageViewer(object):
                                            height=scale_y * height,
                                            caption=self.filename,
                                            display=self.display,
-                                           resizable=True,
-                                           # fullscreen=True # ruins screen
-                                           # resolution
-                                           )
-
+                                           resizable=True)
+                                           # fullscreen=True # ruins screen resolution
         # set location
         # screen_width = self.window.display.get_default_screen().width
         # screen_height = self.window.display.get_default_screen().height

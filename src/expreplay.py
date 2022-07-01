@@ -2,7 +2,6 @@ import numpy as np
 import copy
 from collections import deque
 
-
 class ReplayMemory(object):
     def __init__(self, max_size, state_shape, history_len, agents):
         self.max_size = int(max_size)
@@ -10,8 +9,7 @@ class ReplayMemory(object):
         self.history_len = int(history_len)
         self.agents = agents
         try:
-            self.state = np.zeros(
-                (self.agents, self.max_size) + state_shape, dtype='uint8')
+            self.state = np.zeros((self.agents, self.max_size) + state_shape, dtype='uint8')
         except Exception as e:
             print("Please consider reducing the memory usage with the --memory_size flag.")
             raise e

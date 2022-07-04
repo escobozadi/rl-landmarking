@@ -4,6 +4,8 @@ from expreplay import ReplayMemory
 from DQNModel import DQN
 from evaluator import Evaluator
 from tqdm import tqdm
+import time
+from datetime import timedelta
 
 
 class Trainer(object):
@@ -63,6 +65,7 @@ class Trainer(object):
         episode = 1
         acc_steps = 0
         epoch_distances = []
+        start = time.time()
         while episode <= self.max_episodes:  # epochs
             # Reset the environment for the start of the episode.
             obs = self.env.reset()  # current state, (agents, x-area, y-area)
@@ -104,6 +107,10 @@ class Trainer(object):
                 self.dqn.save_model(name="latest_dqn.pt", forced=True)
                 self.dqn.scheduler.step()
                 epoch_distances = []
+            end = time.time()
+            if (episode == 1) or (episode % 50 == 0):
+                print("Time take for {} episodes: {}".format(episode, timedelta(seconds=end-start)))
+
             episode += 1
 
     def init_memory(self):

@@ -318,7 +318,7 @@ class DQN:
     def _calculate_loss(self, transitions, discount_factor):
         '''
         Transitions are tuple of shape
-        (states, actions, rewards, next_states, dones)
+        (states, actions, rewards, next_states, isOver)
         '''
         curr_state = torch.tensor(transitions[0])
         next_state = torch.tensor(transitions[3])

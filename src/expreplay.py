@@ -4,11 +4,12 @@ from collections import deque
 
 class ReplayMemory(object):
     def __init__(self, max_size, state_shape, history_len, agents):
-        self.max_size = int(max_size)
+        self.max_size = int(max_size)  # Number of transitions stored in exp replay buffer. default: 100,000
         self.state_shape = state_shape
-        self.history_len = int(history_len)
+        self.history_len = int(history_len)  # number of observations the network can see at once, 4
         self.agents = agents
         try:
+            # saving all transitions from each agent, state_shape = image size, (agents, #transitions, image size)
             self.state = np.zeros((self.agents, self.max_size) + state_shape, dtype='uint8')
         except Exception as e:
             print("Please consider reducing the memory usage with the --memory_size flag.")
@@ -19,7 +20,7 @@ class ReplayMemory(object):
 
         self._curr_pos = 0
         self._curr_size = 0
-        self._hist = deque(maxlen=history_len)
+        self._hist = deque(maxlen=history_len)  # double-end queue
 
     def append_obs(self, obs):
         """Append the replay memory with most recent state
@@ -27,7 +28,7 @@ class ReplayMemory(object):
             obs: latest_state
         """
         # increase current memory size if it is not full yet
-        index = self._curr_pos
+        index = self._curr_pos  # current number of transitions stored in buffer
         if self._curr_size < self.max_size:
             self._assign_state(self._curr_pos, obs)
             self._curr_pos = (self._curr_pos + 1) % self.max_size
@@ -54,7 +55,7 @@ class ReplayMemory(object):
             self._hist.append((effect[1],effect[2],effect[3],effect[4]))
 
     def recent_state(self):
-        """ return a list of (hist_len,) + STATE_SIZE """
+        """ return a list of (hist_len,) + STATE_SIZE, state size = image size"""
         lst = list(self._hist)
         states = []
         for i in range(self.agents):
@@ -115,6 +116,7 @@ class ReplayMemory(object):
             next_states.append(exp[3])
             isOver.append(exp[4])
         # Only get most recent terminal state
+        """(agents, #transitions, image size) , (agent, #transitions), ()"""
         return (np.array(states), np.array(actions)[:, :, -1],
                 np.array(rewards)[:, :, -1], np.array(next_states),
                 np.array(isOver)[:, :, -1])

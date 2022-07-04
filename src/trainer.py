@@ -7,8 +7,7 @@ from tqdm import tqdm
 
 
 class Trainer(object):
-    def __init__(self,
-                 env, eval_env=None,
+    def __init__(self, env, eval_env=None,
                  image_size=(45, 45, 45), update_frequency=4,
                  replay_buffer_size=1e6, init_memory_size=5e4,
                  max_episodes=100, steps_per_episode=50,
@@ -64,7 +63,7 @@ class Trainer(object):
         episode = 1
         acc_steps = 0
         epoch_distances = []
-        while episode <= self.max_episodes:
+        while episode <= self.max_episodes:  # epochs
             # Reset the environment for the start of the episode.
             obs = self.env.reset()  # current state, (agents, x-area, y-area)
             self.buffer._hist.clear()
@@ -74,16 +73,16 @@ class Trainer(object):
             for step_num in range(self.steps_per_episode):
                 acc_steps += 1
                 # Step the agent once, and get the transition tuple
-                index = self.buffer.append_obs(obs)
+                index = self.buffer.append_obs(obs)  # index in buffer of the position of every agent
                 acts, q_values = self.get_next_actions(
-                    self.buffer.recent_state())
+                    self.buffer.recent_state())  # recent_state = (agents, history length, image size)
                 next_obs, reward, terminal, info = self.env.step(
                     np.copy(acts), q_values, terminal)
                 self.buffer.append_effect((index, obs, acts, reward, terminal))
                 score = [sum(x) for x in zip(score, reward)]
                 obs = next_obs
                 if acc_steps % self.train_freq == 0:
-                    mini_batch = self.buffer.sample(self.batch_size)
+                    mini_batch = self.buffer.sample(self.batch_size)  #
                     loss = self.dqn.train_q_network(mini_batch, self.gamma)
                     losses.append(loss)
                 if all(t for t in terminal):
@@ -92,9 +91,12 @@ class Trainer(object):
                                     for i in range(self.agents)])
             self.append_episode_board(info, score, "train", episode)
             if (episode * self.epoch_length) % self.update_frequency == 0:
+                # number of epochs b/w each target network update
                 self.dqn.copy_to_target_network()
+
+            # decreasing epsilon by delta every epoch for epsilon-greedy policy
             self.eps = max(self.min_eps, self.eps - self.delta)
-            # Every epoch
+            # Every epoch epoch_length = number of files
             if episode % self.epoch_length == 0:
                 self.append_epoch_board(epoch_distances, self.eps, losses,
                                         "train", episode)
@@ -182,6 +184,7 @@ class Trainer(object):
         # epsilon-greedy policy
         if np.random.random() < self.eps:
             q_values = np.zeros((self.agents, self.number_actions))
+            # random actions for each agent, from options (1: forward y+, 2: right x+, 3: left x-, 4: back y-)
             actions = np.random.randint(self.number_actions, size=self.agents)
         else:
             actions, q_values = self.get_greedy_actions(

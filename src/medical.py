@@ -30,20 +30,16 @@ warnings.warn = warn
 warnings.simplefilter("ignore", category=PendingDeprecationWarning)
 
 _ALE_LOCK = threading.Lock()
-# Rectangle = namedtuple(
-#     'Rectangle', [
-#         'xmin', 'xmax', 'ymin', 'ymax', 'zmin', 'zmax'])
-
 Rectangle2d = namedtuple(
     'Rectangle', [
         'xmin', 'xmax', 'ymin', 'ymax'])
 
 # ===================================================================
-# ================= 3d / 2d medical environment =====================
+# ================= 2D medical environment =====================
 # ===================================================================
 
 class MedicalPlayer(gym.Env):
-    """Class that provides 3D medical image environment.
+    """Class that provides 3D medical image environment. || CHANGE TO 2D
     This is just an implementation of the classic "agent-environment loop".
     Each time-step, the agent chooses an action, and the environment returns
     an observation and a reward."""
@@ -67,27 +63,20 @@ class MedicalPlayer(gym.Env):
         :max_num_frames: maximum numbe0r of frames per episode.
         """
         super(MedicalPlayer, self).__init__()
-        self.agents = agents
+        self.agents = agents  # number of agents
         self.oscillations_allowed = oscillations_allowed
         self.logger = logger
-        # inits stat counters
-        self.reset_stat()
-        # counter to limit number of steps per episodes
-        self.cnt = 0
-        # maximum number of frames (steps) per episodes
-        self.max_num_frames = max_num_frames
-        # stores information: terminal, score, distError
-        self.info = None
-        # option to save display as gif
+        self.reset_stat()  # inits stat counters
+        self.cnt = 0  # counter to limit number of steps per episodes
+        self.max_num_frames = max_num_frames  # maximum number of frames (steps) per episodes
+        self.info = None  # stores information: terminal, score, distError
         self.saveGif = saveGif
         self.saveVideo = saveVideo
-        # training flag
         self.task = task
         # image dimension (2D/3D)
         self.screen_dims = screen_dims
         self.dims = len(self.screen_dims)
-        # multi-scale agent
-        self.multiscale = multiscale
+        self.multiscale = multiscale  # multi-scale agent
 
         # init env dimensions
         if self.dims == 2:
@@ -114,7 +103,6 @@ class MedicalPlayer(gym.Env):
         self.observation_space = spaces.Box(low=0, high=255,
                                             shape=self.screen_dims,
                                             dtype=np.uint8)
-
         # history buffer for storing last locations to check oscilations
         self._history_length = history_length
         self._loc_history = [
@@ -124,11 +112,10 @@ class MedicalPlayer(gym.Env):
             [(0,) * self.actions for _ in range(self._history_length)]
             for _ in range(self.agents)]
         # initialize rectangle limits from input image coordinates
-        #self.rectangle = [Rectangle(0, 0, 0, 0, 0, 0)] * int(self.agents)
-        self.rectangle = [Rectangle2d(0, 0, 0, 0)] * int(self.agents) #2D
+        # self.rectangle = [Rectangle(0, 0, 0, 0, 0, 0)] * int(self.agents)
+        self.rectangle = [Rectangle2d(0, 0, 0, 0)] * int(self.agents)  # 2D
 
         returnLandmarks = (self.task != 'play')
-
         # DATA LOADER
         if file_type == "brain":
             self.files = filesListBrainMRLandmark(files_list,
@@ -146,7 +133,6 @@ class MedicalPlayer(gym.Env):
             self.files = filesListJointUSLandmark(files_list,
                                                   returnLandmarks,
                                                   self.agents)
-
         # prepare file sampler
         self.filepath = None
         self.sampled_files = self.files.sample_circular(landmark_ids)
@@ -160,13 +146,11 @@ class MedicalPlayer(gym.Env):
         return self._current_state()
 
     def _restart_episode(self, fixed_spawn=None):
-        """
-        restart current episode
-        """
+        """  restart current episode  """
         self.terminal = [False] * self.agents
         self.reward = np.zeros((self.agents,))
         self.cnt = 0  # counter to limit number of steps per episodes
-        self.num_games+=1
+        self.num_games += 1
         self._loc_history = [
             [(0,) * self.dims for _ in range(self._history_length)]
             for _ in range(self.agents)]
@@ -299,15 +283,14 @@ class MedicalPlayer(gym.Env):
         if self.dims == 2:
             go_out, current_loc, next_location = self.move2d(act, q_values)
         else:
-            go_out,current_loc, next_location = self.move(act,q_values)
+            go_out, current_loc, next_location = self.move(act, q_values)
         ######################################################################
-
         # punish -1 reward if the agent tries to go out
         if self.task != 'play':
             for i in range(self.agents):
                 if go_out[i]:
                     self.reward[i] = -1
-                else: # reward based on closeness
+                else:  # reward based on closeness
                     self.reward[i] = self._calc_reward(
                         current_loc[i], next_location[i], agent=i)
 
@@ -329,7 +312,7 @@ class MedicalPlayer(gym.Env):
             for i in range(self.agents):
                 self.terminal[i] = True
         """
-        # update history buffer with new location and qvalues
+        # update history buffer with new location and q-values
         if self.task != 'play':
             for i in range(self.agents):
                 self.cur_dist[i] = self.calcDistance(self._location[i],
@@ -451,26 +434,25 @@ class MedicalPlayer(gym.Env):
             # -----------------------------------------------------------------
         return go_out,current_loc, next_location
 
-    def move2d(self,act, q_values):
-        # 1: forward y+, 2: right x+, 3: left x-, 4: back y-
+    def move2d(self, act, q_values):
+        # 0: forward y+, 1: right x+, 2: left x-, 3: back y-
         self._qvalues = q_values
         current_loc = self._location    # list of coord for every agent
         next_location = copy.deepcopy(current_loc)
         self.terminal = [False] * self.agents
         go_out = [False] * self.agents
-
         # agent i movement
         for i in range(self.agents):
             # FORWARD Y+ ------------------------------------------------------
-            if (act[i] == 1):
+            if act[i] == 0:
                 next_location[i] = (current_loc[i][0],
                     round(current_loc[i][1] + self.action_step))
-                if (next_location[i][1] >= self._image_dims[1]):
+                if next_location[i][1] >= self._image_dims[1]:
                     # print(' trying to go out the image Y+ ',)
                     next_location[i] = current_loc[i]
                     go_out[i] = True
             # RIGHT X+ --------------------------------------------------------
-            if (act[i] == 2):
+            if act[i] == 1:
                 next_location[i] = (
                     round(current_loc[i][0] +self.action_step),
                     current_loc[i][1])
@@ -479,7 +461,7 @@ class MedicalPlayer(gym.Env):
                     next_location[i] = current_loc[i]
                     go_out[i] = True
             # LEFT X- ---------------------------------------------------------
-            if act[i] == 3:
+            if act[i] == 2:
                 next_location[i] = (
                     round(current_loc[i][0] - self.action_step),
                     current_loc[i][1])
@@ -488,19 +470,18 @@ class MedicalPlayer(gym.Env):
                     next_location[i] = current_loc[i]
                     go_out[i] = True
             # BACKWARD Y- -----------------------------------------------------
-            if act[i] == 4:
+            if act[i] == 3:
                 next_location[i] = (current_loc[i][0],
                     round(current_loc[i][1] - self.action_step))
                 if next_location[i][1] <= 0:
                     # print(' trying to go out the image Y- ',)
                     next_location[i] = current_loc[i]
                     go_out[i] = True
-        return go_out,current_loc, next_location
+        return go_out, current_loc, next_location
 
     def getBestLocation(self):
         ''' get best location with best qvalue from last 4 locations
-        stored in history
-        '''
+        stored in history'''
         best_locations = []
         for i in range(self.agents):
             last_qvalues_history = self._qvalues_history[i][-4:]

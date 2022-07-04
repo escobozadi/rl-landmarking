@@ -249,7 +249,7 @@ if __name__ == '__main__':
                               args.steps_per_episode)
         evaluator.play_n_episodes(fixed_spawn=args.fixed_spawn)
     else:  # train model
-        #training agents
+        # training agents
         environment = get_player(task='train',
                                  files_list=args.files,
                                  file_type=args.file_type,
@@ -260,7 +260,7 @@ if __name__ == '__main__':
                                  logger=logger)
         eval_env = None
         if args.val_files is not None:
-            #evaluation agents
+            # evaluation agents
             eval_env = get_player(task='eval',
                                   files_list=args.val_files,
                                   file_type=args.file_type,
@@ -287,5 +287,4 @@ if __name__ == '__main__':
                           attention=args.attention,
                           lr=args.lr,
                           scheduler_gamma=args.scheduler_gamma,
-                          scheduler_step_size=args.scheduler_step_size
-                         ).train()
+                          scheduler_step_size=args.scheduler_step_size).train()

@@ -55,7 +55,7 @@ class Logger(object):
             with open(os.path.join(self.dir, "logs.txt"), "a") as logs:
                 logs.write(str(message) + "\n")
 
-    def save_model(self, state_dict, name="dqn.pt", forced=False):
+    def save_model(self, state_dict, name="dqn.pt", forced=True):
         if not self.write:
             return
         if (forced or

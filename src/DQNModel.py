@@ -181,7 +181,8 @@ class CommNet(nn.Module):
         input2 = []
         for i in range(self.agents):
             x = input1[:, i]    # (64,1,4,61,61)
-            x = self.conv0(x.float)   # (64,1,32,59,59)
+            # x = self.conv0(x)
+            x = self.conv0(x.float())   # (64,1,32,59,59)
             x = self.prelu0(x)
             x = self.maxpool0(x)    #(64,1,32,30,30)
             x = self.conv1(x)       #(32,27,27)

@@ -167,7 +167,9 @@ class Trainer(object):
                            name="train", episode=0):
         epoch_dists = np.array(epoch_dists)
         if name == "train":
-            lr = self.dqn.scheduler.state_dict()["_last_lr"]
+            # lr = self.dqn.scheduler.state_dict()["_last_lr"]
+            lr = self.dqn.scheduler.get_last_lr()
+
             if isinstance(lr, list):
                 lr = lr[0]
             self.logger.write_to_board(name, {"eps": eps, "lr": lr}, episode)

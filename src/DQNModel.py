@@ -192,50 +192,56 @@ class CommNet(nn.Module):
             x = self.maxpool2(x)    #(64,6,6)
             x = self.conv3(x)       #(64,4,4)
             x = self.prelu3(x)
-            x = x.view(-1,64*4*4)     #(2,512)
+            x = x.view(-1, 64*4*4)     #(2,512)
             input2.append(x)
 
         input2 = torch.stack(input2, dim=1)  # batch-size, agents,
          
         # Communication layers
         if self.attention:
-            comm = torch.cat([torch.sum((input2.transpose(1, 2) * nn.Softmax(dim=0)(self.comm_att1[i])), axis=2).unsqueeze(0)
+            comm = torch.cat([torch.sum((input2.transpose(1, 2) * nn.Softmax(dim=0)(self.comm_att1[i])), dim=2).unsqueeze(0)
                               for i in range(self.agents)])
         else:
-            comm = torch.mean(input2, axis=1)
+            comm = torch.mean(input2, dim=1)
+            # comm = torch.mean(input2, axis=1)
             comm = comm.unsqueeze(0).repeat(self.agents, *[1]*len(comm.shape))
         
         input3 = []
         for i in range(self.agents):
             x = input2[:, i]
-            x = self.fc1[i](torch.cat((x, comm[i]), axis=-1))
+            x = self.fc1[i](torch.cat((x, comm[i]), dim=-1))
+            # x = self.fc1[i](torch.cat((x, comm[i]), axis=-1))
             input3.append(self.prelu4[i](x))
         input3 = torch.stack(input3, dim=1)
 
         if self.attention:
-            comm = torch.cat([torch.sum((input3.transpose(1, 2) * nn.Softmax(dim=0)(self.comm_att2[i])), axis=2).unsqueeze(0)
+            comm = torch.cat([torch.sum((input3.transpose(1, 2) * nn.Softmax(dim=0)(self.comm_att2[i])), dim=2).unsqueeze(0)
                               for i in range(self.agents)])
         else:
-            comm = torch.mean(input3, axis=1)
+            comm = torch.mean(input3, dim=1)
+            # comm = torch.mean(input3, axis=1)
             comm = comm.unsqueeze(0).repeat(self.agents, *[1]*len(comm.shape))
         input4 = []
         for i in range(self.agents):
             x = input3[:, i]
-            x = self.fc2[i](torch.cat((x, comm[i]), axis=-1))
+            x = self.fc2[i](torch.cat((x, comm[i]), dim=-1))
+            # x = self.fc2[i](torch.cat((x, comm[i]), axis=-1))
             input4.append(self.prelu5[i](x))
         input4 = torch.stack(input4, dim=1)
 
         if self.attention:
-            comm = torch.cat([torch.sum((input4.transpose(1, 2) * nn.Softmax(dim=0)(self.comm_att3[i])), axis=2).unsqueeze(0)
+            comm = torch.cat([torch.sum((input4.transpose(1, 2) * nn.Softmax(dim=0)(self.comm_att3[i])), dim=2).unsqueeze(0)
                               for i in range(self.agents)])
         else:
-            comm = torch.mean(input4, axis=1)
+            comm = torch.mean(input4, dim=1)
+            # comm = torch.mean(input4, axis=1)
             comm = comm.unsqueeze(0).repeat(self.agents, *[1]*len(comm.shape))
         
         output = []
         for i in range(self.agents):
             x = input4[:, i]
-            x = self.fc3[i](torch.cat((x, comm[i]), axis=-1))
+            x = self.fc3[i](torch.cat((x, comm[i]), dim=-1))
+            # x = self.fc3[i](torch.cat((x, comm[i]), axis=-1))
             output.append(x)
         output = torch.stack(output, dim=1)
 
@@ -291,6 +297,7 @@ class DQN:
         self.optimiser = torch.optim.Adam(self.q_network.parameters(), lr=lr)
         self.scheduler = torch.optim.lr_scheduler.StepLR(
             self.optimiser, step_size=scheduler_step_size, gamma=scheduler_gamma)
+        print(self.scheduler.state_dict().keys())
         self.collective_rewards = collective_rewards
 
     def copy_to_target_network(self):
@@ -322,14 +329,15 @@ class DQN:
         '''
         curr_state = torch.tensor(transitions[0])
         next_state = torch.tensor(transitions[3])
-        terminal = torch.tensor(transitions[4]).type(torch.int)
+        terminal = torch.tensor(transitions[4]).type(torch.float)
+        # terminal = torch.tensor(transitions[4]).type(torch.int)
 
         rewards = torch.clamp(
             torch.tensor(
                 transitions[2], dtype=torch.float32), -1, 1)
         # Collective rewards here refers to adding the (potentially weighted) average reward of all agents
         if self.collective_rewards == "mean":
-            rewards += torch.mean(rewards, axis=1).unsqueeze(1).repeat(1, rewards.shape[1])
+            rewards += torch.mean(rewards, dim=1).unsqueeze(1).repeat(1, rewards.shape[1])
         elif self.collective_rewards == "attention":
             rewards = rewards + torch.matmul(rewards, nn.Softmax(dim=0)(self.q_network.rew_att))
 

@@ -679,22 +679,22 @@ class MedicalPlayer(gym.Env):
         self.num_success = [0] * int(self.agents)
 
     def display(self, return_rgb_array=False):
-        # TODO: change to 2D viz
         two_d = True
         # Initializations
         if not two_d:
             planes = np.flipud(
                 np.transpose(self.get_plane(self._location[0][2], agent=0)))
         else:
-            planes = np.flipud(np.transpose(self._image[0].data))
-            #planes = self._image[0].data
-        shape = np.shape(planes)
+            # planes = np.flipud(np.transpose(self._image[0].data))
+            planes = np.transpose(self._image[0].data)
+        shape = np.shape(planes)  # (y scale, x scale)
 
         target_points = []
         current_points = []
+
         for i in range(self.agents):
             # get landmarks
-            current_points.append(self._location[i])  # (x,y)
+            current_points.append(self._location[i])  # (x, -y)
             if self.task != 'play':
                 target_points.append(self._target_loc[i])
             else:
@@ -704,8 +704,8 @@ class MedicalPlayer(gym.Env):
                 current_plane = np.flipud(
                     np.transpose(self.get_plane(current_points[i][2], agent=i)))
             else:
-                current_plane = np.flipud(np.transpose(self._image[i].data))
-                #current_plane = self._image[i].data
+                # current_plane = np.flipud(np.transpose(self._image[i].data))
+                current_plane = np.transpose(self._image[i].data)  # (-y, x)
 
             if i > 0:
                 # get image in z-axis
@@ -733,7 +733,7 @@ class MedicalPlayer(gym.Env):
         scale_x = 1
         img = cv2.resize(
             planes,
-            (int(scale_y * planes.shape[1]), int(scale_x * planes.shape[0])),
+            (int(scale_y * planes.shape[1]), int(scale_x * shape[0])),
             interpolation=cv2.INTER_LINEAR)
         img = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
 
@@ -756,14 +756,20 @@ class MedicalPlayer(gym.Env):
                              current_points[i][0] + shifts_x[i],
                              current_points[i][2])
             else:
+                # current_point = (shape[0] - current_points[i][1] + shifts_y[i],
+                #                  current_points[i][0] + shifts_x[i])
+                # shape[0] -> yscale, curr_pts[1] -> y
                 current_point = (shape[0] - current_points[i][1] + shifts_y[i],
                                  current_points[i][0] + shifts_x[i])
+
             if self.task != 'play':
                 if not two_d:
                     target_point = (shape[0] - target_points[i][1] + shifts_y[i],
                                 target_points[i][0] + shifts_x[i],
                                 target_points[i][2])
                 else:
+                    # target_point = (shape[0] - target_points[i][1] + shifts_y[i],
+                    #                 target_points[i][0] + shifts_x[i])
                     target_point = (shape[0] - target_points[i][1] + shifts_y[i],
                                     target_points[i][0] + shifts_x[i])
             # draw current point
@@ -773,6 +779,11 @@ class MedicalPlayer(gym.Env):
                                     color=(0.0, 0.0, 1.0, 1.0))
             # draw a box around the agent - what the network sees ROI
             # - correct location if image is flipped
+            # self.viewer.draw_rect(
+            #     scale_y * (shape[0] - self.rectangle[i].ymin + shifts_y[i]),
+            #     scale_x * (self.rectangle[i].xmin + shifts_x[i]),
+            #     scale_y * (shape[0] - self.rectangle[i].ymax + shifts_y[i]),
+            #     scale_x * (self.rectangle[i].xmax + shifts_x[i])),
             self.viewer.draw_rect(
                 scale_y * (shape[0] - self.rectangle[i].ymin + shifts_y[i]),
                 scale_x * (self.rectangle[i].xmin + shifts_x[i]),
@@ -780,10 +791,16 @@ class MedicalPlayer(gym.Env):
                 scale_x * (self.rectangle[i].xmax + shifts_x[i])),
             self.viewer.display_text('Agent ' +
                                      str(i), color=(204, 204, 0, 255),
-                                     x=scale_y *
-                                     (shape[0] - self.rectangle[i].ymin + shifts_y[i]),
                                      y=scale_x *
-                                    (self.rectangle[i].xmin + shifts_x[i]))
+                                       (self.rectangle[i].xmin + shifts_x[i]),
+                                     x=scale_y *
+                                       (shape[0] - self.rectangle[i].ymin + shifts_y[i]))
+            # self.viewer.display_text('Agent ' +
+            #                          str(i), color=(204, 204, 0, 255),
+            #                          x=scale_y *
+            #                          (shape[0] - self.rectangle[i].ymin + shifts_y[i]),
+            #                          y=scale_x *
+            #                         (self.rectangle[i].xmin + shifts_x[i]))
             # display info
             text = 'Spacing ' + str(self.xscale)
             self.viewer.display_text(text, color=(204, 204, 0, 255),
@@ -797,14 +814,14 @@ class MedicalPlayer(gym.Env):
                 # radius based on the difference z-direction
                 # diff_z = scale_x * abs(current_point[2] - target_point[2])
                 #print("Target coordinates: {},{}".format(target_point[0],target_point[1]))
-                self.viewer.draw_circle(radius=scale_x * 4,
-                                        pos_x=scale_x * target_point[0],
-                                         pos_y=scale_y * target_point[1],
-                                         color=(1.0, 0.0, 0.0, 0.2))
-                # draw target point
-                self.viewer.draw_circle(radius=scale_x * 1,
+                self.viewer.draw_circle(radius=scale_x * 6,
                                         pos_x=scale_x * target_point[0],
                                         pos_y=scale_y * target_point[1],
+                                        color=(1.0, 0.0, 0.0, 0.2))
+                # draw target point
+                self.viewer.draw_circle(radius=scale_x * 1,
+                                        pos_y=scale_x * (shape[0] - target_point[0]),
+                                        pos_x=scale_y * target_point[1],
                                         color=(204.0, 0.0, 0.0, 255.0))
                 # display info
                 color = (0, 204, 0, 255) if self.reward[i] > 0 else (204, 0, 0, 255)

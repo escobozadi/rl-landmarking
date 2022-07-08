@@ -6,7 +6,7 @@
 import SimpleITK as sitk
 import numpy as np
 import warnings
-from PIL import Image
+import cv2
 
 warnings.simplefilter("ignore", category=ResourceWarning)
 
@@ -22,19 +22,24 @@ def getLandmarksFromTXTFile(file, split=' '):
     """
     Extract each landmark point line by line from a text file, and return
     vector containing all landmarks.
+    file: tendon_id = 1
+    0  0.23424 0.13424
+    2  0.1231  0.46364
+    1  0.2856  0.68465
     """
-    with open(file) as fp:
-        landmarks = []
-        for i, line in enumerate(fp):
-            ln = []
-            for k in line.split(split):
-                if k != "":
-                    ln.append(float(k))
-            landmarks.append(ln)
+    landmarks = np.zeros((3, 2))
+    landmarks[:] = np.nan
 
-        landmarks = np.asarray(landmarks)
-        landmarks = landmarks.reshape((-1, landmarks.shape[1]))
-        return landmarks
+    with open(file) as t:
+        lines = [x.strip() for x in list(t) if x]
+        for l in lines:
+            info = l.split(" ")
+            id = int(info[0])
+            landmarks[id, :] = info[1:3]
+
+    landmarks = np.asarray(landmarks)
+    # landmarks = landmarks.reshape((-1, landmarks.shape[1]))
+    return landmarks
 
 def getLandmarksFromVTKFile(file):
     """
@@ -89,7 +94,8 @@ class filesListJointUSLandmark(object): #2D joint US images
         """ return a random sampled ImageRecord from the list of files
         to sample a new image, should return: image, target loc, file path, spacing
         spacing: consistent unit, mm
-        image:  image.dims"""
+        image:  image.dims
+        landmark_ids: agent landmark, 0 0 0"""
         if shuffle:
             # TODO: could use PyTorch shuffles
             # indexes = rng.choice(x, len(x), replace=False)
@@ -98,21 +104,23 @@ class filesListJointUSLandmark(object): #2D joint US images
             indexes = np.arange(self.num_files)
         while True:
             for idx in indexes:
-                #png for 2d images
-                pil_image, image = PngImage().decode(self.image_files[idx])
+                # png for 2d images np.isnan(m[1]).any()
+                sitk_image, image = PngImage().decode(self.image_files[idx])
+
                 if self.returnLandmarks:
                     # transform landmarks to image space if they are in physical space
                     landmark_file = self.landmark_files[idx]
-                    landmark = getLandmarksFromTXTFile(landmark_file)  # one (x,y) landmark for tendon
-                    landmark[0][0] *= image.dims[0]
-                    landmark[0][1] *= image.dims[1]
+                    landmark = getLandmarksFromTXTFile(landmark_file)
+                    # scaling coor to the size of the image
+                    landmark[:, 0] *= image.dims[0]
+                    landmark[:, 1] *= image.dims[1]
                     landmarks_round = [np.round(landmark[landmark_ids[i] % 15])for i in range(self.agents)]
                 else:
                     landmarks_round = None
+
                 # extract filename from path, remove .png extension
                 image_filenames = [self.image_files[idx][:-4]] * self.agents
                 images = [image] * self.agents
-                sitk_image = sitk.GetImageFromArray(image.data)  # sitk image from numpy array
                 yield (images, landmarks_round, image_filenames,
                        sitk_image.GetSpacing())
 
@@ -331,7 +339,7 @@ class PngImage(object):
     def __init__(self):
         pass
 
-    def _is_png(self,filename):
+    def _is_png(self, filename):
         extension = '.png'
         return extension in filename
 
@@ -341,8 +349,10 @@ class PngImage(object):
         image.name = filename
         assert self._is_png(
             image.name), "unknown image format for %r" % image.name
-        image_frame = Image.open(filename).convert('L') #greyscale image
-        np_image = np.array(image_frame).transpose(1,0) # 2D image
+
+        np_image = cv2.imread(filename, cv2.IMREAD_GRAYSCALE)
+        np_image = np_image.transpose(1, 0)
+        image_frame = sitk.GetImageFromArray(np_image)
         image.data = np_image
         image.dims = np_image.shape  # (x,y)
         return image_frame, image
@@ -399,6 +409,7 @@ class NiftiImage(object):
                                                outputMaximum=255)
 
         # Convert from [depth, width, height] to [width, height, depth]
+        # ??? isnt it [height, width, depth]
         image.data = sitk.GetArrayFromImage(
             sitk_image).transpose(2, 1, 0)  # .astype('uint8')
         image.dims = np.shape(image.data)

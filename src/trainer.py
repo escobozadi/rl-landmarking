@@ -16,11 +16,8 @@ class Trainer(object):
                  eps=1, min_eps=0.1, delta=0.001,
                  batch_size=4, gamma=0.9,
                  number_actions=6, frame_history=4,
-                 model_name="CommNet",
-                 logger=None,
-                 train_freq=1,
-                 team_reward=False, attention=False,
-                 lr=1e-3,
+                 model_name="CommNet", logger=None, train_freq=1,
+                 team_reward=False, attention=False, lr=1e-3,
                  scheduler_gamma=0.5,
                  scheduler_step_size=100):
         self.env = env
@@ -49,7 +46,7 @@ class Trainer(object):
         self.dqn = DQN(self.agents, self.frame_history,
             logger=logger, type=model_name,number_actions=number_actions,
             collective_rewards=team_reward,
-            attention=attention,lr=lr,
+            attention=attention, lr=lr,
             scheduler_gamma=scheduler_gamma,
             scheduler_step_size=scheduler_step_size)
         self.dqn.q_network.train(True)

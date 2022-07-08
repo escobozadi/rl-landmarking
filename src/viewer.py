@@ -153,7 +153,7 @@ class SimpleImageViewer(object):
         glColor4f(1.0, 1.0, 1.0, 1.0)
 
     def display_text(self, text, x, y, color=(0, 0, 204, 255),  # RGBA
-                     anchor_x='left', anchor_y='top'):
+                     anchor_x='left', anchor_y='bottom'):
         x = int(self.img_height - x)
         y = int(y)
         label = pyglet.text.Label(text,

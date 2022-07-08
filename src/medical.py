@@ -730,7 +730,7 @@ class MedicalPlayer(gym.Env):
         scale_x = 1
         img = cv2.resize(
             planes,
-            (int(scale_y * planes.shape[1]), int(scale_x * shape[0])),
+            (int(scale_y * planes.shape[1]), int(scale_x * planes.shape[0])),
             interpolation=cv2.INTER_LINEAR)
         img = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
 
@@ -769,10 +769,12 @@ class MedicalPlayer(gym.Env):
                     #                 target_points[i][0] + shifts_x[i])
                     target_point = (target_points[i][1] + shifts_y[i],
                                     target_points[i][0] + shifts_x[i])
+
+            # draw_circle indexing from bottom left (0,0)
             # draw current point
             self.viewer.draw_circle(radius=scale_x * 1,
                                     pos_y=scale_y * current_point[1],
-                                    pos_x=scale_x * current_point[0],
+                                    pos_x=scale_x * current_point[0],  # height - pos_x
                                     color=(0.0, 0.0, 1.0, 1.0))
             # draw a box around the agent - what the network sees ROI
             # - correct location if image is flipped
@@ -782,16 +784,16 @@ class MedicalPlayer(gym.Env):
             #     scale_y * (shape[0] - self.rectangle[i].ymax + shifts_y[i]),
             #     scale_x * (self.rectangle[i].xmax + shifts_x[i])),
             self.viewer.draw_rect(
-                scale_y * (shape[0] - self.rectangle[i].ymin + shifts_y[i]),
+                scale_y * (self.rectangle[i].ymin + shifts_y[i]),
                 scale_x * (self.rectangle[i].xmin + shifts_x[i]),
-                scale_y * (shape[0] - self.rectangle[i].ymax + shifts_y[i]),
+                scale_y * (self.rectangle[i].ymax + shifts_y[i]),
                 scale_x * (self.rectangle[i].xmax + shifts_x[i])),
             self.viewer.display_text('Agent ' +
                                      str(i), color=(204, 204, 0, 255),
                                      y=scale_x *
                                        (self.rectangle[i].xmin + shifts_x[i]),
                                      x=scale_y *
-                                       (shape[0] - self.rectangle[i].ymin + shifts_y[i]))
+                                       (self.rectangle[i].ymin + shifts_y[i]))
             # self.viewer.display_text('Agent ' +
             #                          str(i), color=(204, 204, 0, 255),
             #                          x=scale_y *

@@ -38,6 +38,7 @@ def getLandmarksFromTXTFile(file, split=' '):
             landmarks[id, :] = info[1:3]
 
     landmarks = np.asarray(landmarks)
+    # landmarks[:,0] = -landmarks[:,0]
     # landmarks = landmarks.reshape((-1, landmarks.shape[1]))
     return landmarks
 
@@ -51,6 +52,7 @@ def getLandmarksFromVTKFile(file):
         3 -> LV lateral wall mid-point
         4 -> apex
         5-> center of the mitral valve
+        # Convert from [depth, width, height] to [width, height, depth]
     """
     with open(file) as fp:
         landmarks = []
@@ -351,7 +353,8 @@ class PngImage(object):
             image.name), "unknown image format for %r" % image.name
 
         np_image = cv2.imread(filename, cv2.IMREAD_GRAYSCALE)
-        np_image = np_image.transpose(1, 0)
+        # np_image = np_image.transpose(1, 0)
+        np_image = cv2.transpose(np_image)
         image_frame = sitk.GetImageFromArray(np_image)
         image.data = np_image
         image.dims = np_image.shape  # (x,y)

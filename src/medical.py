@@ -46,7 +46,7 @@ class MedicalPlayer(gym.Env):
 
     def __init__(self, directory=None, viz=False, task=False, files_list=None,
                  file_type="brain", landmark_ids=None,
-                 screen_dims=(27, 27, 27), history_length=28, multiscale=True,
+                 screen_dims=(61, 61), history_length=28, multiscale=True,
                  max_num_frames=0, saveGif=False, saveVideo=False, agents=1,
                  oscillations_allowed=4, fixed_spawn=None, logger=None):
         """
@@ -112,7 +112,6 @@ class MedicalPlayer(gym.Env):
             [(0,) * self.actions for _ in range(self._history_length)]
             for _ in range(self.agents)]
         # initialize rectangle limits from input image coordinates
-        # self.rectangle = [Rectangle(0, 0, 0, 0, 0, 0)] * int(self.agents)
         self.rectangle = [Rectangle2d(0, 0, 0, 0)] * int(self.agents)  # 2D
 
         returnLandmarks = (self.task != 'play')
@@ -199,7 +198,7 @@ class MedicalPlayer(gym.Env):
             self.xscale = 1
             self.yscale = 1
 
-        # image volume size
+        # image volume size, img[agent0].dims = (x-size,y-size)
         self._image_dims = self._image[0].dims
 
         if fixed_spawn is None:
@@ -249,7 +248,7 @@ class MedicalPlayer(gym.Env):
                     self._location[i], self._target_loc[i],
                     self.spacing) for i in range(self.agents)]
 
-    def calcDistance(self, points1, points2, spacing=(1, 1, 1)):
+    def calcDistance(self, points1, points2, spacing=(1, 1)):
         """ calculate the distance between two points in mm"""
         spacing = np.array(spacing)
         points1 = spacing * np.array(points1)
@@ -336,7 +335,7 @@ class MedicalPlayer(gym.Env):
                     self.xscale -= 1
                     self.yscale -= 1
                     # self.zscale -= 1
-                    self.action_step = int(self.action_step / 3)
+                    self.action_step = int(self.action_step / 2)
                     self._clear_history()
                 # terminate if scale is less than 1
                 else:
@@ -435,9 +434,16 @@ class MedicalPlayer(gym.Env):
         return go_out,current_loc, next_location
 
     def move2d(self, act, q_values):
-        # 0: forward y+, 1: right x+, 2: left x-, 3: back y-
+        """ACTION_MEANING = {
+            1: "FORWARD",  # MOVE Y+
+            2: "RIGHT",  # MOVE X+
+            3: "LEFT",  # MOVE X-
+            4: "BACKWARD",  # MOVE Y-
+        }
+         0: forward y+, 1: right x+, 2: left x-, 3: back y-
+        """
         self._qvalues = q_values
-        current_loc = self._location    # list of coord for every agent
+        current_loc = self._location    # list of coord for every agent ((-)x,-y)
         next_location = copy.deepcopy(current_loc)
         self.terminal = [False] * self.agents
         go_out = [False] * self.agents
@@ -454,7 +460,7 @@ class MedicalPlayer(gym.Env):
             # RIGHT X+ --------------------------------------------------------
             if act[i] == 1:
                 next_location[i] = (
-                    round(current_loc[i][0] +self.action_step),
+                    round(current_loc[i][0] + self.action_step),
                     current_loc[i][1])
                 if next_location[i][0] >= self._image_dims[0]:
                     # print(' trying to go out the image X+ ',)
@@ -648,19 +654,11 @@ class MedicalPlayer(gym.Env):
 
     def get_action_meanings(self):
         """ return array of integers for actions"""
-        # ACTION_MEANING = {
-        #     1: "UP",  # MOVE Z+
-        #     2: "FORWARD",  # MOVE Y+
-        #     3: "RIGHT",  # MOVE X+
-        #     4: "LEFT",  # MOVE X-
-        #     5: "BACKWARD",  # MOVE Y-
-        #     6: "DOWN",  # MOVE Z-
-        # }
         ACTION_MEANING = {
-            2: "FORWARD",  # MOVE Y+
-            3: "RIGHT",  # MOVE X+
-            4: "LEFT",  # MOVE X-
-            5: "BACKWARD",  # MOVE Y-
+            1: "FORWARD",  # MOVE Y+
+            2: "RIGHT",  # MOVE X+
+            3: "LEFT",  # MOVE X-
+            4: "BACKWARD",  # MOVE Y-
         }
         return [ACTION_MEANING[i] for i in self.actions]
 
@@ -686,15 +684,14 @@ class MedicalPlayer(gym.Env):
                 np.transpose(self.get_plane(self._location[0][2], agent=0)))
         else:
             # planes = np.flipud(np.transpose(self._image[0].data))
-            planes = np.transpose(self._image[0].data)
+            planes = cv2.transpose(self._image[0].data)
         shape = np.shape(planes)  # (y scale, x scale)
 
         target_points = []
         current_points = []
-
         for i in range(self.agents):
             # get landmarks
-            current_points.append(self._location[i])  # (x, -y)
+            current_points.append(self._location[i])  # (x, y)
             if self.task != 'play':
                 target_points.append(self._target_loc[i])
             else:
@@ -705,7 +702,7 @@ class MedicalPlayer(gym.Env):
                     np.transpose(self.get_plane(current_points[i][2], agent=i)))
             else:
                 # current_plane = np.flipud(np.transpose(self._image[i].data))
-                current_plane = np.transpose(self._image[i].data)  # (-y, x)
+                current_plane = cv2.transpose(self._image[i].data)  # (-y, x)
 
             if i > 0:
                 # get image in z-axis
@@ -756,10 +753,10 @@ class MedicalPlayer(gym.Env):
                              current_points[i][0] + shifts_x[i],
                              current_points[i][2])
             else:
+                # shape[0] -> yscale, curr_pts[1] -> y
                 # current_point = (shape[0] - current_points[i][1] + shifts_y[i],
                 #                  current_points[i][0] + shifts_x[i])
-                # shape[0] -> yscale, curr_pts[1] -> y
-                current_point = (shape[0] - current_points[i][1] + shifts_y[i],
+                current_point = (current_points[i][1] + shifts_y[i],
                                  current_points[i][0] + shifts_x[i])
 
             if self.task != 'play':
@@ -770,7 +767,7 @@ class MedicalPlayer(gym.Env):
                 else:
                     # target_point = (shape[0] - target_points[i][1] + shifts_y[i],
                     #                 target_points[i][0] + shifts_x[i])
-                    target_point = (shape[0] - target_points[i][1] + shifts_y[i],
+                    target_point = (target_points[i][1] + shifts_y[i],
                                     target_points[i][0] + shifts_x[i])
             # draw current point
             self.viewer.draw_circle(radius=scale_x * 1,
@@ -820,8 +817,8 @@ class MedicalPlayer(gym.Env):
                                         color=(1.0, 0.0, 0.0, 0.2))
                 # draw target point
                 self.viewer.draw_circle(radius=scale_x * 1,
-                                        pos_y=scale_x * (shape[0] - target_point[0]),
-                                        pos_x=scale_y * target_point[1],
+                                        pos_x=scale_x * target_point[0],
+                                        pos_y=scale_y * target_point[1],
                                         color=(204.0, 0.0, 0.0, 255.0))
                 # display info
                 color = (0, 204, 0, 255) if self.reward[i] > 0 else (204, 0, 0, 255)

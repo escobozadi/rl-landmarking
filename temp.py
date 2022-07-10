@@ -1,9 +1,9 @@
 import cv2
 import os
 import numpy as np
-from PIL import Image
-import matplotlib
-from matplotlib import pyplot as plt
+import json
+import matplotlib.pyplot as plt
+import pandas as pd
 
 
 def imageNorm(path, destination):
@@ -44,11 +44,6 @@ def vizualize(path, target):
     pts = np.floor(pts).astype(int)
     height = np.ceil(height).astype(int)
     width = np.ceil(width).astype(int)
-    #print(np_image.flags)
-    #print((np_image.T).flags)
-    #np_image = np_image.transpose(1, 0)  # x,y
-    #n = np.zeros((np_image.T).shape)
-    #n[:] = (np_image.T)[:]
     np_image = cv2.transpose(np_image)
     print(np_image.shape)
     for i in range(3):
@@ -57,20 +52,10 @@ def vizualize(path, target):
     cv2.imshow("image", np_image.transpose(1, 0))
     cv2.waitKey(0)
 
-    return
-
-
-if __name__ == '__main__':
-    dir = "src/data/images/"
-    dest = "src/data/norm_images/"
-    im = "src/data/images/0a63a82d-4833___m4732_a4833_s4873_1_8_US_.png"
-    lan = "src/data/landmarks/0a63a82d-4833___m4732_a4833_s4873_1_8_US_.txt"
-    # imageNorm(path=dir, destination=dest)
-    vizualize(im, lan)
     # landmarks = np.zeros((3, 2))
     # landmarks[:] = np.nan
     #
-    # with open(lan) as t:
+    # with open(target) as t:
     #     lines = [x.strip() for x in list(t) if x]
     #     for l in lines:
     #         info = l.split(" ")
@@ -81,7 +66,145 @@ if __name__ == '__main__':
     #
     # landmarks = np.asarray(landmarks)
     # landmarks = landmarks.reshape((-1, landmarks.shape[1]))
-    # print(landmarks)
+
+    return
+
+def save_training(path):
+
+    dist = {}
+    score = {}
+    epoch = {}
+    validation = {}
+    info_epoch = {}
+    with open(path) as t:
+        lines = [x.strip() for x in list(t) if x]
+        for l in lines:
+            info = l.split(" ")
+            if info[0] == "train/dist" or info[0] == "train/score":
+                ep = info[2].replace(":", "")
+                dic = " ".join(info[3:]).replace("'", "\"")
+                dic = json.loads(dic)
+                dist[ep] = dic
+                score[ep] = dic
+
+            elif info[0] == "train":
+                ep = info[2].replace(":", "")
+                dic = " ".join(info[3:]).replace("'", "\"")
+                dic = json.loads(dic)
+                if not ep in info_epoch.keys():
+                    info_epoch[ep] = {}
+
+                for k in list(dic.keys()):
+                    info_epoch[ep][k] = dic[k]
+
+            elif info[0] == "train/mean_dist":
+                ep = info[2].replace(":", "")
+                dic = " ".join(info[3:]).replace("'", "\"")
+                dic = json.loads(dic)
+                agent = list(dic.keys())[0]
+                if not ep in epoch.keys():
+                    epoch[ep] = {}
+
+                epoch[ep][agent] = dic[agent]
+
+            elif info[0] == "eval/mean_dist":
+                ep = info[2].replace(":", "")
+                dic = " ".join(info[3:]).replace("'", "\"")
+                dic = json.loads(dic)
+                agent = list(dic.keys())[0]
+                if not ep in validation.keys():
+                    validation[ep] = {}
+
+                validation[ep][agent] = dic[agent]
+
+    with open("src/results-2a/train-dist.json", "w") as file:
+        json.dump(dist, file)
+
+    with open("src/results-2a/train-score.json", "w") as file:
+        json.dump(score, file)
+
+    with open("src/results-2a/train-epoch.json", "w") as file:
+        json.dump(epoch, file)
+
+    with open("src/results-2a/val-mean.json", "w") as file:
+        json.dump(validation, file)
+
+    with open("src/results-2a/info-epoch.json", "w") as file:
+        json.dump(info_epoch, file)
+
+    return
+
+def plot_log(train, val,name1,name2):
+
+    with open(train, "r") as t, open(val, "r") as v:
+        dist = json.load(t)
+        vdist = json.load(v)
+
+    x = list(dist.keys())
+    agent0 = [d["0"] for d in list(dist.values())]
+    agent1 = [d["1"] for d in list(dist.values())]
+    #agent2 = [d["2"] for d in list(dist.values())]
+
+    vagent0 = [d["0"] for d in list(vdist.values())]
+    vagent1 = [d["1"] for d in list(vdist.values())]
+    #vagent2 = [d["2"] for d in list(vdist.values())]
+
+    #plt.figure(1)
+    plt.subplot(1, 2, 1)
+    plt.plot(x, agent0, label="Agent 0")
+    plt.plot(x, agent1, label="Agent 1")
+    # plt.plot(x, agent2, label="Agent 2")
+    plt.title(name1)
+    plt.xlabel("Epoch")
+    plt.ylabel("Distance (mm)")
+
+    plt.subplot(1, 2, 2)
+    plt.plot(x, vagent0, label="Agent 0")
+    plt.plot(x, vagent1, label="Agent 1")
+    # plt.plot(x, vagent2, label="Agent 2")
+    plt.title(name2)
+    plt.xlabel("Epoch")
+    plt.ylabel("Distance (mm)")
+
+    plt.show()
+
+    return
+
+def plot_loss(info):
+
+    with open(info, "r") as i:
+        log = json.load(i)
+
+    episode = list(log.keys())
+    loss = [d["loss"] for d in list(log.values())]
+
+    plt.figure(1)
+    plt.plot(episode, loss, label="Loss")
+    plt.title("Train Loss")
+    plt.xlabel("Epoch")
+    plt.ylabel("Loss")
+
+    plt.show()
+
+    return
+
+if __name__ == '__main__':
+    # dir = "src/data/images/"
+    # dest = "src/data/norm_images/"
+    # im = "src/data/images/0a63a82d-4833___m4732_a4833_s4873_1_8_US_.png"
+    # lan = "src/data/landmarks/0a63a82d-4833___m4732_a4833_s4873_1_8_US_.txt"
+    # imageNorm(path=dir, destination=dest)
+    #vizualize(im, lan)
+
+    logs = "src/test-sync/myserver/logs.txt"
+    train_dist = "src/results-2a/train-epoch.json"
+    val_dist = "src/results-2a/val-mean.json"
+    #save_training(logs)
+    # plot_log(train_dist, val_dist,
+    #          "Train Mean Distance", "Validation Mean Distance")
+
+    plot_loss("src/results-2a/info-epoch.json")
+
 
 
 

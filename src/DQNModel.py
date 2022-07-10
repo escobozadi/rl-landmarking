@@ -193,7 +193,7 @@ class CommNet(nn.Module):
             x = self.maxpool2(x)    #(64,6,6)
             x = self.conv3(x)       #(64,4,4)
             x = self.prelu3(x)
-            x = x.view(-1, 64*4*4)     #(2,512)
+            x = x.view(-1, 64*4*4)     #(64,2,512)
             input2.append(x)
 
         input2 = torch.stack(input2, dim=1)  # batch-size, agents,
@@ -298,7 +298,7 @@ class DQN:
         self.optimiser = torch.optim.Adam(self.q_network.parameters(), lr=lr)
         self.scheduler = torch.optim.lr_scheduler.StepLR(
             self.optimiser, step_size=scheduler_step_size, gamma=scheduler_gamma)
-        print(self.scheduler.state_dict().keys())
+        # print(self.scheduler.state_dict().keys())
         self.collective_rewards = collective_rewards
 
     def copy_to_target_network(self):

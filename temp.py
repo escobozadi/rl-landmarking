@@ -4,7 +4,10 @@ import numpy as np
 import json
 import matplotlib.pyplot as plt
 import pandas as pd
+import copy
 
+class outputViz(object):
+    pass
 
 def imageNorm(path, destination):
 
@@ -25,7 +28,7 @@ def vizualize(path, target):
     """
         ._.
     """
-    np_image = cv2.imread(path, cv2.IMREAD_GRAYSCALE)
+    np_image = cv2.imread(path, cv2.IMREAD_COLOR)
     # (y: from up to down ,x)
     # transpose: (x: from right to left, y)
     pts = np.array([[0.5886666666666666, 0.3093869731800766],
@@ -188,6 +191,101 @@ def plot_loss(info):
 
     return
 
+def read_output(file, agents=1):
+    """
+    ['number',
+    'Filename 0', 'Agent 0 pos x', 'Agent 0 pos y', 'Landmark 0 pos x', 'Landmark 0 pos y', 'Distance 0',
+    'Filename 1', 'Agent 1 pos x', 'Agent 1 pos y', 'Landmark 1 pos x', 'Landmark 1 pos y', 'Distance 1',
+    'Filename 2', 'Agent 2 pos x', 'Agent 2 pos y', 'Landmark 2 pos x', 'Landmark 2 pos y', 'Distance 2']
+    return:
+    min distances = {file name: {agent #: [[agent x, agent y], [landmark x, landmark y]]}}
+    max distances = {...}
+    min_dist = [agent 0 min dist, agent 1 ..., ...]
+    max_dist = [agent 0 max dist, agent 1 ..., ...]
+    """
+    with open(file) as f:
+        lines = [x.split() for x in list(f) if x]
+
+    labels = " ".join(lines[4]).replace("'", "\"")
+    labels = json.loads(labels)
+
+    dis_idx = []
+    file_idx = []
+    min_dist = []
+    max_dist = []
+    for i in range(agents):
+        dis_idx.append(labels.index("Distance {}".format(i)))
+        file_idx.append(labels.index("Filename {}".format(i)))
+        min_dist.append(float('inf'))
+        max_dist.append(0)
+
+    file_min = {}
+    file_max = {}
+    for line in lines[5:-2]:
+        l = " ".join(line).replace("'", "\"")
+        l = json.loads(l)
+        for i in range(agents):
+            if l[dis_idx[i]] < min_dist[i]:
+                min_dist[i] = l[dis_idx[i]]
+                fidx = file_idx[i]
+                coor = [l[fidx + 1], l[fidx + 2]]
+                land = [l[fidx + 3], l[fidx + 4]]
+                file_min["Agent {}".format(i)] = {l[fidx]: [coor, land]}
+
+            if l[dis_idx[i]] > max_dist[i]:
+                max_dist[i] = l[dis_idx[i]]
+                fidx = file_idx[i]
+                coor = [l[fidx + 1], l[fidx + 2]]
+                land = [l[fidx + 3], l[fidx + 4]]
+                file_max["Agent {}".format(i)] = {l[fidx]: [coor, land]}
+
+    return file_min, file_max, min_dist, max_dist
+
+def image_show(min_dic,max_dic,dmin,dmax):
+    path = "src/data/images/"
+    save = "src/tests/test-results/"
+    size = (450, 450)
+
+    for i in range(len(dmin)):
+        min_name = list(min_dic["Agent {}".format(i)].keys())[0]
+        max_name = list(max_dic["Agent {}".format(i)].keys())[0]
+
+        im_min = cv2.imread(path + min_name + ".png")
+        im_max = cv2.imread(path + max_name + ".png")
+
+        coord = np.array(min_dic["Agent {}".format(i)][min_name])
+        coordx = np.array(max_dic["Agent {}".format(i)][max_name])
+
+        # Agent start = green, end = blue, Landmark = red
+        im1 = cv2.circle(im_min, (round(0.5*im_min.shape[1]), round(0.5*im_min.shape[0])),
+                         radius=3, color=(0, 255, 0), thickness=-1)
+        im1 = cv2.circle(im_min, tuple(coord[0].astype(int)),
+                         radius=4, color=(255, 0, 0), thickness=-1)
+        im1 = cv2.circle(im_min, tuple(coord[1].astype(int)),
+                         radius=4, color=(0, 0, 255), thickness=-1)
+        ######
+        im2 = cv2.circle(im_max, (round(0.5*im_max.shape[1]), round(0.5*im_max.shape[0])),
+                         radius=4, color=(0, 255, 0), thickness=-1)
+        im2 = cv2.circle(im_max, tuple(coordx[0].astype(int)),
+                         radius=4, color=(255, 0, 0), thickness=-1)
+        im2 = cv2.circle(im_max, tuple(coordx[1].astype(int)),
+                         radius=4, color=(0, 0, 255), thickness=-1)
+
+        im1 = cv2.resize(im1, size)
+        im2 = cv2.resize(im2, size)
+        cv2.putText(im1, "Agent {}: Closest Distance Arrived {}mm".format(i, round(dmin[0])), (20, 420),
+                    thickness=1, fontScale=0.4, color=(0, 255, 0), fontFace=cv2.FONT_HERSHEY_SIMPLEX)
+        cv2.putText(im2, "Agent {}: Farthest Distance Arrived {}mm".format(i, round(dmax[0])), (20, 420),
+                    thickness=1, fontScale=0.4, color=(0, 255, 0), fontFace=cv2.FONT_HERSHEY_SIMPLEX)
+        himage = np.hstack((im1, im2))
+
+        cv2.imwrite(save + "Agent {}".format(i) + ".png", himage)
+    # cv2.imshow("Test: Min/Max Distance Image", himage)
+    # cv2.waitKey(0)
+
+    return
+
+
 if __name__ == '__main__':
     # dir = "src/data/images/"
     # dest = "src/data/norm_images/"
@@ -203,7 +301,10 @@ if __name__ == '__main__':
     # plot_log(train_dist, val_dist,
     #          "Train Mean Distance", "Validation Mean Distance")
 
-    plot_loss("src/results-2a/info-epoch.json")
+    # plot_loss("src/results-2a/info-epoch.json")
+
+    dic_min, dic_max, min_dist, max_dist = read_output("src/out.txt", 3)
+    image_show(dic_min, dic_max, min_dist, max_dist)
 
 
 

@@ -231,7 +231,8 @@ class MedicalPlayer(gym.Env):
             #         self.agents)
         else:
             # x, y, z = [[int(fixed_spawn[i][j]*(self._image_dims[i]-1)) for j in range(self.agents)] for i in range(len(fixed_spawn))]
-            x, y = [[int(fixed_spawn[i][j]*(self._image_dims[i]-1)) for j in range(self.agents)] for i in range(len(fixed_spawn))]
+            x, y = [[int(fixed_spawn[i][j] * (self._image_dims[i] - 1)) for j in range(self.agents)] for i in
+                    range(len(fixed_spawn))]
 
         # self._location = [(x[i], y[i], z[i]) for i in range(self.agents)]
         # self._start_location = [(x[i], y[i], z[i]) for i in range(self.agents)]

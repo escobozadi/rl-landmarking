@@ -17,7 +17,10 @@ class Evaluator(object):
         results used when playing demos.
         """
         if fixed_spawn is None:
-            num_runs = 1 
+            num_runs = 1
+            fixed_spawn = np.array([0.5,0.5]).reshape((-1,2))
+            fixed_spawn = np.stack([fixed_spawn for _ in range(self.agents)], axis=-1)
+
         else:
             # fixed_spawn should be, for example, [0.5 , 0.5 , 0, 0] for 2 runs in 2D
             # In the first run agents spawn in the middle and in the second they will spawn from the corner

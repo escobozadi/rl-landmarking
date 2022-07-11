@@ -251,6 +251,7 @@ if __name__ == '__main__':
     else:  # train model
         # training agents
         environment = get_player(task='train',
+                                 saveGif=args.saveGif,
                                  files_list=args.files,
                                  file_type=args.file_type,
                                  landmark_ids=args.landmarks,

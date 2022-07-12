@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from torch.distributions import Categorical
 
 class Network3D(nn.Module):
 
@@ -361,3 +362,11 @@ class DQN:
         y_pred = torch.gather(network_prediction, -1, actions).squeeze()
 
         return torch.nn.SmoothL1Loss()(batch_labels_tensor.flatten(), y_pred.flatten())
+
+class LossFunction(nn.Module):
+    def __init__(self):
+        super(LossFunction, self).__init__()
+
+    def forward(self, inputs, target):
+        return
+

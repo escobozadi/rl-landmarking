@@ -273,13 +273,13 @@ def image_show(min_dic,max_dic,dmin,dmax):
 
         im1 = cv2.resize(im1, size)
         im2 = cv2.resize(im2, size)
-        cv2.putText(im1, "Agent {}: Closest Distance Arrived {}mm".format(i, round(dmin[0])), (20, 420),
+        cv2.putText(im1, "Agent {}: Distance From Landmark {}mm".format(i, round(dmin[i])), (20, 420),
                     thickness=1, fontScale=0.4, color=(0, 255, 0), fontFace=cv2.FONT_HERSHEY_SIMPLEX)
-        cv2.putText(im2, "Agent {}: Farthest Distance Arrived {}mm".format(i, round(dmax[0])), (20, 420),
+        cv2.putText(im2, "Agent {}: Distance From Landmark {}mm".format(i, round(dmax[i])), (20, 420),
                     thickness=1, fontScale=0.4, color=(0, 255, 0), fontFace=cv2.FONT_HERSHEY_SIMPLEX)
-        himage = np.hstack((im1, im2))
+        himage = np.hstack((im2,im1))
 
-        cv2.imwrite(save + "Agent {}".format(i) + ".png", himage)
+        cv2.imwrite(save + "Agent{}-Comparison".format(i) + ".png", himage)
     # cv2.imshow("Test: Min/Max Distance Image", himage)
     # cv2.waitKey(0)
 
@@ -303,7 +303,12 @@ if __name__ == '__main__':
 
     # plot_loss("src/results-2a/info-epoch.json")
 
-    dic_min, dic_max, min_dist, max_dist = read_output("src/out.txt", 3)
+    # dic_min, dic_max, min_dist, max_dist = read_output("src/out.txt", 3)
+    dic_min = {"Agent 0": {"deaad75e-7089___m6892_a7089_s7158_1_5_US_":
+                              [[373, 206], [343.0, 251.0]]}}
+    min_dist = [54.08326913195984]
+    max_dist = [52.08646657242167]
+    dic_max = {"Agent 0":{"c0ce573a-m3329_a3376_s3407_1_24_US_":[[219, 147],[167.0, 144.0]]}}
     image_show(dic_min, dic_max, min_dist, max_dist)
 
 

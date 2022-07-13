@@ -72,13 +72,16 @@ def vizualize(path, target):
 
     return
 
-def save_training(path):
+def save_training(path,save_path):
 
     dist = {}
     score = {}
     epoch = {}
     validation = {}
     info_epoch = {}
+    success_train = {}
+    agents = {"0": 0, "1": 0, "2": 0}
+    epoch_num = 1
     with open(path) as t:
         lines = [x.strip() for x in list(t) if x]
         for l in lines:
@@ -99,6 +102,7 @@ def save_training(path):
 
                 for k in list(dic.keys()):
                     info_epoch[ep][k] = dic[k]
+                epoch_num += 1
 
             elif info[0] == "train/mean_dist":
                 ep = info[2].replace(":", "")
@@ -120,56 +124,94 @@ def save_training(path):
 
                 validation[ep][agent] = dic[agent]
 
-    with open("src/results-2a/train-dist.json", "w") as file:
+            elif info[0] == "distance":
+                if not epoch_num in success_train.keys():
+                    epoch_num -= 1
+                    success_train[epoch_num] = copy.deepcopy(agents)
+                success_train[epoch_num][info[3]] += 1
+
+    with open(save_path + "train-dist.json", "w") as file:
         json.dump(dist, file)
 
-    with open("src/results-2a/train-score.json", "w") as file:
+    with open(save_path + "train-score.json", "w") as file:
         json.dump(score, file)
 
-    with open("src/results-2a/train-epoch.json", "w") as file:
+    with open(save_path + "train-epoch.json", "w") as file:
         json.dump(epoch, file)
 
-    with open("src/results-2a/val-mean.json", "w") as file:
+    with open(save_path + "val-mean.json", "w") as file:
         json.dump(validation, file)
 
-    with open("src/results-2a/info-epoch.json", "w") as file:
+    with open(save_path + "info-epoch.json", "w") as file:
         json.dump(info_epoch, file)
+
+    with open(save_path + "success-train.json", "w") as file:
+        json.dump(success_train, file)
 
     return
 
-def plot_log(train, val,name1,name2):
+def plot_successes(path):
+
+    with open(path + "success-train.json", "r") as i:
+        log = json.load(i)
+    x = np.asarray(list(log.keys())).astype(int)
+    success = np.asarray(list(log.values()))
+    values0 = [d["0"] for d in success]
+    values1 = [d["1"] for d in success]
+    values2 = [d["2"] for d in success]
+
+    plt.figure(1)
+    plt.plot(x, values0, 'c-', label="Agent 0")
+    plt.plot(x, values1, 'm-', label="Agent 1")
+    plt.plot(x, values2, 'k-', label="Agent 2")
+    plt.title("Number of Successes During Training")
+    plt.xlabel("Epoch")
+    plt.ylabel("# of Successes")
+    plt.legend(loc='upper right')
+    plt.text(0, 40, s="Agent 0 total successes:{}".format(sum(values0)))
+    plt.text(0, 38, s="Agent 1 total successes:{}".format(sum(values1)))
+    plt.text(0, 36, s="Agent 2 total successes:{}".format(sum(values2)))
+    plt.show()
+
+    return
+
+def plot_log(train, val,name1,name2,save_path):
 
     with open(train, "r") as t, open(val, "r") as v:
         dist = json.load(t)
         vdist = json.load(v)
 
-    x = list(dist.keys())
+    x = np.arange(len(dist.keys()))
     agent0 = [d["0"] for d in list(dist.values())]
     agent1 = [d["1"] for d in list(dist.values())]
-    #agent2 = [d["2"] for d in list(dist.values())]
+    agent2 = [d["2"] for d in list(dist.values())]
 
     vagent0 = [d["0"] for d in list(vdist.values())]
     vagent1 = [d["1"] for d in list(vdist.values())]
-    #vagent2 = [d["2"] for d in list(vdist.values())]
+    vagent2 = [d["2"] for d in list(vdist.values())]
 
     #plt.figure(1)
     plt.subplot(1, 2, 1)
-    plt.plot(x, agent0, label="Agent 0")
-    plt.plot(x, agent1, label="Agent 1")
-    # plt.plot(x, agent2, label="Agent 2")
+    plt.plot(x, agent0, 'c-', label="Agent 0")
+    plt.plot(x, agent1, 'm-', label="Agent 1")
+    plt.plot(x, agent2, 'k-', label="Agent 2")
     plt.title(name1)
     plt.xlabel("Epoch")
     plt.ylabel("Distance (mm)")
+    plt.legend(loc='upper right')
 
     plt.subplot(1, 2, 2)
-    plt.plot(x, vagent0, label="Agent 0")
-    plt.plot(x, vagent1, label="Agent 1")
-    # plt.plot(x, vagent2, label="Agent 2")
+    plt.plot(x, vagent0, 'c-', label="Agent 0")
+    plt.plot(x, vagent1, 'm-', label="Agent 1")
+    plt.plot(x, vagent2, 'k-', label="Agent 2")
     plt.title(name2)
     plt.xlabel("Epoch")
     plt.ylabel("Distance (mm)")
+    plt.legend(loc='upper right')
 
+    plt.savefig(save_path + "results-dist.png")
     plt.show()
+
 
     return
 
@@ -178,12 +220,12 @@ def plot_loss(info):
     with open(info, "r") as i:
         log = json.load(i)
 
-    episode = list(log.keys())
+    x = np.arange(len(log.keys()))
     loss = [d["loss"] for d in list(log.values())]
 
     plt.figure(1)
-    plt.plot(episode, loss, label="Loss")
-    plt.title("Train Loss")
+    plt.plot(x, loss, 'k-', label="Loss")
+    plt.title("Training Loss")
     plt.xlabel("Epoch")
     plt.ylabel("Loss")
 
@@ -247,14 +289,14 @@ def image_show(min_dic,max_dic,dmin,dmax):
     size = (450, 450)
 
     for i in range(len(dmin)):
-        min_name = list(min_dic["Agent {}".format(i)].keys())[0]
-        max_name = list(max_dic["Agent {}".format(i)].keys())[0]
+        min_name = list(min_dic["Agent {}".format(1)].keys())[0]
+        max_name = list(max_dic["Agent {}".format(2)].keys())[0]
 
         im_min = cv2.imread(path + min_name + ".png")
         im_max = cv2.imread(path + max_name + ".png")
 
-        coord = np.array(min_dic["Agent {}".format(i)][min_name])
-        coordx = np.array(max_dic["Agent {}".format(i)][max_name])
+        coord = np.array(min_dic["Agent {}".format(1)][min_name])
+        coordx = np.array(max_dic["Agent {}".format(2)][max_name])
 
         # Agent start = green, end = blue, Landmark = red
         im1 = cv2.circle(im_min, (round(0.5*im_min.shape[1]), round(0.5*im_min.shape[0])),
@@ -273,13 +315,13 @@ def image_show(min_dic,max_dic,dmin,dmax):
 
         im1 = cv2.resize(im1, size)
         im2 = cv2.resize(im2, size)
-        cv2.putText(im1, "Agent {}: Distance From Landmark {}mm".format(i, round(dmin[i])), (20, 420),
+        cv2.putText(im1, "Agent {}: Distance From Landmark {}mm".format(1, round(dmin[i])), (20, 420),
                     thickness=1, fontScale=0.4, color=(0, 255, 0), fontFace=cv2.FONT_HERSHEY_SIMPLEX)
-        cv2.putText(im2, "Agent {}: Distance From Landmark {}mm".format(i, round(dmax[i])), (20, 420),
+        cv2.putText(im2, "Agent {}: Distance From Landmark {}mm".format(2, round(dmax[i])), (20, 420),
                     thickness=1, fontScale=0.4, color=(0, 255, 0), fontFace=cv2.FONT_HERSHEY_SIMPLEX)
-        himage = np.hstack((im2,im1))
+        himage = np.hstack((im1, im2))
 
-        cv2.imwrite(save + "Agent{}-Comparison".format(i) + ".png", himage)
+        cv2.imwrite(save + "Agent{}-{}-Comparison".format(1,2) + ".png", himage)
     # cv2.imshow("Test: Min/Max Distance Image", himage)
     # cv2.waitKey(0)
 
@@ -287,29 +329,24 @@ def image_show(min_dic,max_dic,dmin,dmax):
 
 
 if __name__ == '__main__':
-    # dir = "src/data/images/"
-    # dest = "src/data/norm_images/"
+    dir = "src/data/images/"
+    dest = "src/data/norm_images/"
     # im = "src/data/images/0a63a82d-4833___m4732_a4833_s4873_1_8_US_.png"
     # lan = "src/data/landmarks/0a63a82d-4833___m4732_a4833_s4873_1_8_US_.txt"
     # imageNorm(path=dir, destination=dest)
-    #vizualize(im, lan)
+    # vizualize(im, lan)
 
-    logs = "src/test-sync/myserver/logs.txt"
-    train_dist = "src/results-2a/train-epoch.json"
-    val_dist = "src/results-2a/val-mean.json"
-    #save_training(logs)
+    logs = "src/test-sync/long-run/logs.txt"
+    train_dist = "src/tests/test-results/train-epoch.json"
+    val_dist = "src/tests/test-results/val-mean.json"
+    save_dir = "src/tests/test-results/"
+    # save_training(logs, save_dir)
     # plot_log(train_dist, val_dist,
-    #          "Train Mean Distance", "Validation Mean Distance")
-
-    # plot_loss("src/results-2a/info-epoch.json")
+    #          "Train Mean Distance", "Validation Mean Distance", save_dir)
+    # plot_loss("src/tests/test-results/info-epoch.json")
 
     # dic_min, dic_max, min_dist, max_dist = read_output("src/out.txt", 3)
-    dic_min = {"Agent 0": {"deaad75e-7089___m6892_a7089_s7158_1_5_US_":
-                              [[373, 206], [343.0, 251.0]]}}
-    min_dist = [54.08326913195984]
-    max_dist = [52.08646657242167]
-    dic_max = {"Agent 0":{"c0ce573a-m3329_a3376_s3407_1_24_US_":[[219, 147],[167.0, 144.0]]}}
-    image_show(dic_min, dic_max, min_dist, max_dist)
+    # image_show(dic_min, dic_max, min_dist, max_dist)
 
 
 

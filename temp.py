@@ -345,8 +345,8 @@ if __name__ == '__main__':
     #          "Train Mean Distance", "Validation Mean Distance", save_dir)
     # plot_loss("src/tests/test-results/info-epoch.json")
 
-    # dic_min, dic_max, min_dist, max_dist = read_output("src/out.txt", 3)
-    # image_show(dic_min, dic_max, min_dist, max_dist)
+    dic_min, dic_max, min_dist, max_dist = read_output("src/out.txt", 3)
+    image_show(dic_min, dic_max, min_dist, max_dist)
 
 
 

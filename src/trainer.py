@@ -15,7 +15,7 @@ class Trainer(object):
                  max_episodes=100, steps_per_episode=50,
                  eps=1, min_eps=0.1, delta=0.001,
                  batch_size=4, gamma=0.9,
-                 number_actions=6, frame_history=4,
+                 number_actions=4, frame_history=4,
                  model_name="CommNet", logger=None, train_freq=1,
                  team_reward=False, attention=False, lr=1e-3,
                  scheduler_gamma=0.5,

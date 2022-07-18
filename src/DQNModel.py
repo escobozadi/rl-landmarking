@@ -84,7 +84,7 @@ class Network3D(nn.Module):
 
 class CommNet(nn.Module):
 
-    def __init__(self, agents, frame_history, number_actions, xavier=True, attention=False):
+    def __init__(self, agents, frame_history, number_actions=4, xavier=True, attention=False):
         super(CommNet, self).__init__()
 
         self.agents = agents
@@ -262,6 +262,7 @@ class DQN:
         self.device = torch.device(
             "cuda" if torch.cuda.is_available() else "cpu")
         self.logger.log(f"Using {self.device}")
+        self.loss_func = LossFunction()
         # Create a Q-network, which predicts the q-value for a particular state
         if type == "Network3d":
             self.q_network = Network3D(
@@ -361,12 +362,36 @@ class DQN:
         actions = torch.tensor(transitions[1], dtype=torch.long).unsqueeze(-1)
         y_pred = torch.gather(network_prediction, -1, actions).squeeze()
 
-        return torch.nn.SmoothL1Loss()(batch_labels_tensor.flatten(), y_pred.flatten())
+        # print("Target Model Output: ")
+        # print(y)
+        # print("Max Target Output: ")
+        # print(max_target_net)
+        # print("Network Prediction: ")
+        # print(network_prediction)
+        # print("Bellman Equation: ")
+        # print(batch_labels_tensor)
+        # print("Actions: ")
+        # print(actions)
+        # print("Predictions: ")
+        # print(y_pred)
+
+        return self.loss_func.forward(network_pred=network_prediction,
+                                    bellman=batch_labels_tensor, pred=y_pred)
 
 class LossFunction(nn.Module):
-    def __init__(self):
+    def __init__(self, beta=0.1):
         super(LossFunction, self).__init__()
+        self.beta = beta
 
-    def forward(self, inputs, target):
-        return
+    def forward(self, network_pred, bellman, pred):
+        p = Categorical(logits=network_pred)
+
+        dist_loss = torch.nn.SmoothL1Loss()(bellman.flatten(), pred.flatten())
+        entropy_loss = -p.entropy().view(-1).sum()
+        # print("L1 Loss: ")
+        # print(dist_loss)
+        #
+        # print("Loss Function:")
+        # print(dist_loss + (self.beta * entropy_loss))
+        return dist_loss + (self.beta * entropy_loss)
 

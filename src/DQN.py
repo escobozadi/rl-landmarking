@@ -233,7 +233,7 @@ if __name__ == '__main__':
 
     if args.task != 'train':
         dqn = DQN(agents, frame_history=FRAME_HISTORY, logger=logger,
-                  type=args.model_name, collective_rewards=args.team_reward, attention=args.attention)
+                  type=args.model_name, collective_rewards=args.team_reward, attention=args.attention, ids=args.landmarks)
         model = dqn.q_network
         model.load_state_dict(torch.load(args.load, map_location=model.device))  # Load pre-trained model
         environment = get_player(files_list=args.files,

@@ -21,6 +21,7 @@ class Trainer(object):
                  scheduler_gamma=0.5, scheduler_step_size=100):
 
         self.env = env
+        self.ids = landmarks
         self.eval_env = eval_env
         self.agents = env.agents
         self.image_size = image_size
@@ -44,12 +45,11 @@ class Trainer(object):
             self.frame_history,
             self.agents)
         self.dqn = DQN(self.agents, self.frame_history,
-            logger=logger, type=model_name, number_actions=number_actions,
-            collective_rewards=team_reward,
-            attention=attention, lr=lr,
-            scheduler_gamma=scheduler_gamma,
-            scheduler_step_size=scheduler_step_size,
-                       landmarks=landmarks)
+                       logger=logger, type=model_name, number_actions=number_actions,
+                       collective_rewards=team_reward, attention=attention, lr=lr,
+                       scheduler_gamma=scheduler_gamma,
+                       scheduler_step_size=scheduler_step_size, ids=landmarks)
+
         self.dqn.q_network.train(True)
         self.evaluator = Evaluator(eval_env,
                                    self.dqn.q_network, logger,

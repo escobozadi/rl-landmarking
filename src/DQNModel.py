@@ -252,12 +252,12 @@ class CommNet(nn.Module):
 
 class DQN:
     # The class initialisation function.
-    def __init__(self, agents, landmarks, frame_history, logger, number_actions=4,
+    def __init__(self, agents, frame_history, logger, number_actions=4,
             type="Network3d", collective_rewards=False, attention=False,
-            lr=1e-3, scheduler_gamma=0.9, scheduler_step_size=100):
+            lr=1e-3, scheduler_gamma=0.9, scheduler_step_size=100, ids=None):
 
         self.agents = agents
-        self.landmarks_ids = landmarks
+        self.landmarks_ids = ids
         self.number_actions = number_actions
         self.frame_history = frame_history
         self.logger = logger

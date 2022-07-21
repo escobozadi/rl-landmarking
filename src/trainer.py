@@ -9,7 +9,7 @@ from datetime import timedelta
 
 
 class Trainer(object):
-    def __init__(self, env, landmarks, eval_env=None,
+    def __init__(self, env, eval_env=None, landmarks=None,
                  image_size=(45, 45, 45), update_frequency=4,
                  replay_buffer_size=1e6, init_memory_size=5e4,
                  max_episodes=100, steps_per_episode=50,

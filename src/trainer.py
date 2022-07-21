@@ -9,7 +9,7 @@ from datetime import timedelta
 
 
 class Trainer(object):
-    def __init__(self, env, eval_env=None,
+    def __init__(self, env, landmarks, eval_env=None,
                  image_size=(45, 45, 45), update_frequency=4,
                  replay_buffer_size=1e6, init_memory_size=5e4,
                  max_episodes=100, steps_per_episode=50,
@@ -18,8 +18,8 @@ class Trainer(object):
                  number_actions=4, frame_history=4,
                  model_name="CommNet", logger=None, train_freq=1,
                  team_reward=False, attention=False, lr=1e-3,
-                 scheduler_gamma=0.5,
-                 scheduler_step_size=100):
+                 scheduler_gamma=0.5, scheduler_step_size=100):
+
         self.env = env
         self.eval_env = eval_env
         self.agents = env.agents
@@ -44,11 +44,12 @@ class Trainer(object):
             self.frame_history,
             self.agents)
         self.dqn = DQN(self.agents, self.frame_history,
-            logger=logger, type=model_name,number_actions=number_actions,
+            logger=logger, type=model_name, number_actions=number_actions,
             collective_rewards=team_reward,
             attention=attention, lr=lr,
             scheduler_gamma=scheduler_gamma,
-            scheduler_step_size=scheduler_step_size)
+            scheduler_step_size=scheduler_step_size,
+                       landmarks=landmarks)
         self.dqn.q_network.train(True)
         self.evaluator = Evaluator(eval_env,
                                    self.dqn.q_network, logger,

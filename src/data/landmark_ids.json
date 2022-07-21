@@ -1,0 +1,24 @@
+{
+  "categories": [
+    {
+      "id": 0,
+      "name": "Femur"
+    },
+    {
+      "id": 1,
+      "name": "Quadriceps Tendon"
+    },
+    {
+      "id": 2,
+      "name": "Patella"
+    },
+    {
+      "id": 3,
+      "name": "Tibia/Fibula"
+    },
+    {
+      "id": 4,
+      "name": "Talus"
+    }
+  ]
+}

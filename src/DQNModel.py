@@ -84,7 +84,7 @@ class Network3D(nn.Module):
 
 class CommNet(nn.Module):
 
-    def __init__(self, agents, frame_history, number_actions=4, xavier=True, attention=False):
+    def __init__(self, agents, landmarks, frame_history, number_actions=4, xavier=True, attention=False):
         super(CommNet, self).__init__()
 
         self.agents = agents
@@ -122,14 +122,15 @@ class CommNet(nn.Module):
                 out_channels=64,
                 kernel_size=(4, 4), padding=1).to(self.device) #(64,13+2-4+1,12)
             self.maxpool2 = nn.MaxPool2d(
-                kernel_size=(2, 2)).to(self.device) #(64,6,6)
+                kernel_size=(2, 2)).to(self.device)  # (64,6,6)
 
             self.conv3 = nn.Conv2d(
                 in_channels=64,
                 out_channels=64,
                 kernel_size=(3, 3),
-                padding=0).to(self.device)  #(64,4,4)
+                padding=0).to(self.device)  # (64,4,4)
 
+        # CONV output: (64,4,4)
         self.prelu0 = nn.PReLU().to(self.device)
         self.prelu1 = nn.PReLU().to(self.device)
         self.prelu2 = nn.PReLU().to(self.device)
@@ -194,9 +195,9 @@ class CommNet(nn.Module):
             x = self.maxpool2(x)    #(64,6,6)
             x = self.conv3(x)       #(64,4,4)
             x = self.prelu3(x)
-            x = x.view(-1, 64*4*4)     #(64,2,512)
+            x = x.view(-1, 64*4*4)     # (64,2,512)
             input2.append(x)
-
+        # output (64,2,512)
         input2 = torch.stack(input2, dim=1)  # batch-size, agents,
          
         # Communication layers
@@ -204,9 +205,9 @@ class CommNet(nn.Module):
             comm = torch.cat([torch.sum((input2.transpose(1, 2) * nn.Softmax(dim=0)(self.comm_att1[i])), dim=2).unsqueeze(0)
                               for i in range(self.agents)])
         else:
-            comm = torch.mean(input2, dim=1)
+            comm = torch.mean(input2, dim=1)  # (64,1,512)
             # comm = torch.mean(input2, axis=1)
-            comm = comm.unsqueeze(0).repeat(self.agents, *[1]*len(comm.shape))
+            comm = comm.unsqueeze(0).repeat(self.agents, *[1]*len(comm.shape))  # (agents, 64,1,512)
         
         input3 = []
         for i in range(self.agents):
@@ -251,11 +252,12 @@ class CommNet(nn.Module):
 
 class DQN:
     # The class initialisation function.
-    def __init__(self,agents,frame_history,logger,number_actions=4,
-            type="Network3d", collective_rewards=False,attention=False,
-            lr=1e-3,scheduler_gamma=0.9,scheduler_step_size=100):
+    def __init__(self, agents, landmarks, frame_history, logger, number_actions=4,
+            type="Network3d", collective_rewards=False, attention=False,
+            lr=1e-3, scheduler_gamma=0.9, scheduler_step_size=100):
 
         self.agents = agents
+        self.landmarks_ids = landmarks
         self.number_actions = number_actions
         self.frame_history = frame_history
         self.logger = logger
@@ -362,24 +364,11 @@ class DQN:
         actions = torch.tensor(transitions[1], dtype=torch.long).unsqueeze(-1)
         y_pred = torch.gather(network_prediction, -1, actions).squeeze()
 
-        # print("Target Model Output: ")
-        # print(y)
-        # print("Max Target Output: ")
-        # print(max_target_net)
-        # print("Network Prediction: ")
-        # print(network_prediction)
-        # print("Bellman Equation: ")
-        # print(batch_labels_tensor)
-        # print("Actions: ")
-        # print(actions)
-        # print("Predictions: ")
-        # print(y_pred)
-
         return self.loss_func.forward(network_pred=network_prediction,
                                     bellman=batch_labels_tensor, pred=y_pred)
 
 class LossFunction(nn.Module):
-    def __init__(self, beta=0.1):
+    def __init__(self, beta=0.001):
         super(LossFunction, self).__init__()
         self.beta = beta
 
@@ -388,10 +377,6 @@ class LossFunction(nn.Module):
 
         dist_loss = torch.nn.SmoothL1Loss()(bellman.flatten(), pred.flatten())
         entropy_loss = -p.entropy().view(-1).sum()
-        # print("L1 Loss: ")
-        # print(dist_loss)
-        #
-        # print("Loss Function:")
-        # print(dist_loss + (self.beta * entropy_loss))
+
         return dist_loss + (self.beta * entropy_loss)
 

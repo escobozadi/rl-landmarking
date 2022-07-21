@@ -6,23 +6,30 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import copy
 
-class outputViz(object):
-    pass
 
-def imageNorm(path, destination):
+class CleanData(object):
+    def __init__(self, dir):
+        self.images_dir = dir
 
-    image_files = [f for f in os.listdir(path) if not f.startswith('.')]
-    idx = 0
-    for im in image_files:
-        image = cv2.imread(path + im, cv2.IMREAD_GRAYSCALE)
-        if image is None:
-            print("Image is empty: {}, {}".format(idx, im))
-        im_norm = np.zeros(image.shape)
-        im_norm = cv2.normalize(image, im_norm, 0, 255, cv2.NORM_MINMAX)
-        cv2.imwrite(destination + im, im_norm)
-        idx += 1
+    def ImageNorm(self, path, image_files, destination):
 
-    return
+        idx = 0
+        for im in image_files:
+            image = cv2.imread(path + im, cv2.IMREAD_GRAYSCALE)
+            if image is None:
+                print("Image is empty: {}, {}".format(idx, im))
+            im_norm = np.zeros(image.shape)
+            im_norm = cv2.normalize(image, im_norm, 0, 255, cv2.NORM_MINMAX)
+            cv2.imwrite(destination + im, im_norm)
+            idx += 1
+
+        return
+
+
+class ModelLog(object):
+    def __init__(self):
+        pass
+
 
 def vizualize(path, target):
     """
@@ -72,8 +79,8 @@ def vizualize(path, target):
 
     return
 
-def save_training(path,save_path):
 
+def save_training(path, save_path):
     dist = {}
     score = {}
     epoch = {}
@@ -150,8 +157,8 @@ def save_training(path,save_path):
 
     return
 
-def plot_successes(path):
 
+def plot_successes(path):
     with open(path + "success-train.json", "r") as i:
         log = json.load(i)
     x = np.asarray(list(log.keys())).astype(int)
@@ -175,8 +182,8 @@ def plot_successes(path):
 
     return
 
-def plot_log(train, val,name1,name2,save_path):
 
+def plot_log(train, val, name1, name2, save_path):
     with open(train, "r") as t, open(val, "r") as v:
         dist = json.load(t)
         vdist = json.load(v)
@@ -190,7 +197,7 @@ def plot_log(train, val,name1,name2,save_path):
     vagent1 = [d["1"] for d in list(vdist.values())]
     vagent2 = [d["2"] for d in list(vdist.values())]
 
-    #plt.figure(1)
+    # plt.figure(1)
     plt.subplot(1, 2, 1)
     plt.plot(x, agent0, 'c-', label="Agent 0")
     plt.plot(x, agent1, 'm-', label="Agent 1")
@@ -212,11 +219,10 @@ def plot_log(train, val,name1,name2,save_path):
     plt.savefig(save_path + "results-dist.png")
     plt.show()
 
-
     return
 
-def plot_loss(info):
 
+def plot_loss(info):
     with open(info, "r") as i:
         log = json.load(i)
 
@@ -232,6 +238,7 @@ def plot_loss(info):
     plt.show()
 
     return
+
 
 def read_output(file, agents=1):
     """
@@ -283,30 +290,31 @@ def read_output(file, agents=1):
 
     return file_min, file_max, min_dist, max_dist
 
-def image_show(min_dic,max_dic,dmin,dmax):
+
+def image_show(min_dic, max_dic, dmin, dmax):
     path = "src/data/images/"
     save = "src/tests/test-results/"
     size = (450, 450)
 
     for i in range(len(dmin)):
-        min_name = list(min_dic["Agent {}".format(1)].keys())[0]
-        max_name = list(max_dic["Agent {}".format(2)].keys())[0]
+        min_name = list(min_dic["Agent {}".format(i)].keys())[0]
+        max_name = list(max_dic["Agent {}".format(i)].keys())[0]
 
         im_min = cv2.imread(path + min_name + ".png")
         im_max = cv2.imread(path + max_name + ".png")
 
-        coord = np.array(min_dic["Agent {}".format(1)][min_name])
-        coordx = np.array(max_dic["Agent {}".format(2)][max_name])
+        coord = np.array(min_dic["Agent {}".format(i)][min_name])
+        coordx = np.array(max_dic["Agent {}".format(i)][max_name])
 
         # Agent start = green, end = blue, Landmark = red
-        im1 = cv2.circle(im_min, (round(0.5*im_min.shape[1]), round(0.5*im_min.shape[0])),
+        im1 = cv2.circle(im_min, (round(0.5 * im_min.shape[1]), round(0.5 * im_min.shape[0])),
                          radius=3, color=(0, 255, 0), thickness=-1)
         im1 = cv2.circle(im_min, tuple(coord[0].astype(int)),
                          radius=4, color=(255, 0, 0), thickness=-1)
         im1 = cv2.circle(im_min, tuple(coord[1].astype(int)),
                          radius=4, color=(0, 0, 255), thickness=-1)
         ######
-        im2 = cv2.circle(im_max, (round(0.5*im_max.shape[1]), round(0.5*im_max.shape[0])),
+        im2 = cv2.circle(im_max, (round(0.5 * im_max.shape[1]), round(0.5 * im_max.shape[0])),
                          radius=4, color=(0, 255, 0), thickness=-1)
         im2 = cv2.circle(im_max, tuple(coordx[0].astype(int)),
                          radius=4, color=(255, 0, 0), thickness=-1)
@@ -315,13 +323,13 @@ def image_show(min_dic,max_dic,dmin,dmax):
 
         im1 = cv2.resize(im1, size)
         im2 = cv2.resize(im2, size)
-        cv2.putText(im1, "Agent {}: Distance From Landmark {}mm".format(1, round(dmin[i])), (20, 420),
+        cv2.putText(im1, "Agent {}: Distance From Landmark {}mm".format(i, round(dmin[i])), (20, 420),
                     thickness=1, fontScale=0.4, color=(0, 255, 0), fontFace=cv2.FONT_HERSHEY_SIMPLEX)
-        cv2.putText(im2, "Agent {}: Distance From Landmark {}mm".format(2, round(dmax[i])), (20, 420),
+        cv2.putText(im2, "Agent {}: Distance From Landmark {}mm".format(i, round(dmax[i])), (20, 420),
                     thickness=1, fontScale=0.4, color=(0, 255, 0), fontFace=cv2.FONT_HERSHEY_SIMPLEX)
         himage = np.hstack((im1, im2))
 
-        cv2.imwrite(save + "Agent{}-{}-Comparison".format(1,2) + ".png", himage)
+        cv2.imwrite(save + "Agent{}-Tendon".format(i) + ".png", himage)
     # cv2.imshow("Test: Min/Max Distance Image", himage)
     # cv2.waitKey(0)
 
@@ -329,25 +337,45 @@ def image_show(min_dic,max_dic,dmin,dmax):
 
 
 if __name__ == '__main__':
-    dir = "src/data/images/"
-    dest = "src/data/norm_images/"
-    # im = "src/data/images/0a63a82d-4833___m4732_a4833_s4873_1_8_US_.png"
-    # lan = "src/data/landmarks/0a63a82d-4833___m4732_a4833_s4873_1_8_US_.txt"
-    # imageNorm(path=dir, destination=dest)
-    # vizualize(im, lan)
 
-    logs = "src/test-sync/long-run/logs.txt"
-    train_dist = "src/tests/test-results/train-epoch.json"
-    val_dist = "src/tests/test-results/val-mean.json"
-    save_dir = "src/tests/test-results/"
+    dir = "/Users/dianaescoboza/Documents/SUMMER22/Datasets/AnkleDS/"
+    dest = "src/data/images/"
+    image_files = [f for f in os.listdir(dir+'images') if not f.startswith('.')]
+    # clean_images = [f for f in os.listdir(dir+'images_clean') if not f.startswith('.')]
+    # images = [f for f in os.listdir(dest) if not f.startswith('.')]
+    labels = [f for f in os.listdir(dir+"labels") if not f.startswith('.')]
+
+    # ankle 0: Tibia --> 3: Tibia/Fibula
+    # 1: Talus --> 4
+    # 2: tendon --> 1
+    # for l in labels:
+    #     label = open(dir+"labels/"+l, "r")
+    #     landmark = open(dest+"landmarks/"+l, "w")
+    #     for line in label:
+    #         if line[0] == "0":
+    #             landmark.write("3" + line[1:])
+    #
+    #         elif line[0] == "1":
+    #             landmark.write("4" + line[1:])
+    #
+    #         elif line[0] == "2":
+    #             landmark.write("1" + line[1:])
+    #
+    #     label.close()
+    #     landmark.close()
+
+    data = CleanData(dir)
+    data.ImageNorm(dest,image_files,dest)
+
+    # vizualize(im, lan)
+    # logs = "src/test-sync/long-run/logs.txt"
+    # train_dist = "src/tests/test-results/train-epoch.json"
+    # val_dist = "src/tests/test-results/val-mean.json"
+    # save_dir = "src/tests/test-results/"
     # save_training(logs, save_dir)
     # plot_log(train_dist, val_dist,
     #          "Train Mean Distance", "Validation Mean Distance", save_dir)
     # plot_loss("src/tests/test-results/info-epoch.json")
 
-    dic_min, dic_max, min_dist, max_dist = read_output("src/out.txt", 3)
-    image_show(dic_min, dic_max, min_dist, max_dist)
-
-
-
-
+    # dic_min, dic_max, min_dist, max_dist = read_output("src/runs/Jul20_13-17-34_MacBook-Pro.local/logs.txt")
+    # image_show(dic_min, dic_max, min_dist, max_dist)

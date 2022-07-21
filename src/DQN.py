@@ -286,6 +286,6 @@ if __name__ == '__main__':
                           train_freq=args.train_freq,
                           team_reward=args.team_reward,
                           attention=args.attention,
-                          lr=args.lr,
+                          lr=args.lr, landmarks=args.landmarks,
                           scheduler_gamma=args.scheduler_gamma,
                           scheduler_step_size=args.scheduler_step_size).train()

@@ -257,9 +257,9 @@ class DQN:
             lr=1e-3, scheduler_gamma=0.9, scheduler_step_size=100, ids=None):
 
         if merge_layers:
-            self.agents = agents
-        else:
             self.agents = ids
+        else:
+            self.agents = agents
 
         self.number_actions = number_actions
         self.frame_history = frame_history

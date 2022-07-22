@@ -10,11 +10,12 @@ import copy
 class CleanData(object):
     def __init__(self, dir):
         self.images_dir = dir
+        self.images_files = [f for f in os.listdir(dir) if not f.startswith('.')]
 
-    def ImageNorm(self, path, image_files, destination):
+    def ImageNorm(self, path, destination):
 
         idx = 0
-        for im in image_files:
+        for im in self.images_files:
             image = cv2.imread(path + im, cv2.IMREAD_GRAYSCALE)
             if image is None:
                 print("Image is empty: {}, {}".format(idx, im))
@@ -25,6 +26,22 @@ class CleanData(object):
 
         return
 
+    def RescaleImages(self):
+
+        scale_percent = 60  # percent of original size
+        for im in self.images_files:
+            img = cv2.imread(self.images_dir + im, cv2.IMREAD_UNCHANGED)
+            # print('Original Dimensions : ', img.shape)
+            width = int(img.shape[1] * scale_percent / 100)
+            height = int(img.shape[0] * scale_percent / 100)
+            dim = (width, height)
+
+            # resize image
+            resized = cv2.resize(img, dim, interpolation=cv2.INTER_AREA)
+            # print('Resized Dimensions : ', resized.shape)
+            cv2.imwrite(self.images_dir + im, resized)
+
+        return
 
 class ModelLog(object):
     def __init__(self):
@@ -183,34 +200,31 @@ def plot_successes(path):
     return
 
 
-def plot_log(train, val, name1, name2, save_path):
+def plot_log(train, val, name1, name2, save_path, agents=1):
     with open(train, "r") as t, open(val, "r") as v:
         dist = json.load(t)
         vdist = json.load(v)
 
-    x = np.arange(len(dist.keys()))
-    agent0 = [d["0"] for d in list(dist.values())]
-    agent1 = [d["1"] for d in list(dist.values())]
-    agent2 = [d["2"] for d in list(dist.values())]
-
-    vagent0 = [d["0"] for d in list(vdist.values())]
-    vagent1 = [d["1"] for d in list(vdist.values())]
-    vagent2 = [d["2"] for d in list(vdist.values())]
+    entries = dist.keys()
+    agent = np.zeros((agents, len(entries)))
+    vagent = np.zeros((agents, len(entries)))
+    x = np.arange(len(entries))
+    for i in range(agents):
+        agent[i] = [d[str(i)] for d in list(dist.values())]
+        vagent[i] = [d[str(i)] for d in list(vdist.values())]
 
     # plt.figure(1)
     plt.subplot(1, 2, 1)
-    plt.plot(x, agent0, 'c-', label="Agent 0")
-    plt.plot(x, agent1, 'm-', label="Agent 1")
-    plt.plot(x, agent2, 'k-', label="Agent 2")
+    for i in range(agents):
+        plt.plot(x, agent[i], 'c-', label="Agent {}".format(i))
     plt.title(name1)
     plt.xlabel("Epoch")
     plt.ylabel("Distance (mm)")
     plt.legend(loc='upper right')
 
     plt.subplot(1, 2, 2)
-    plt.plot(x, vagent0, 'c-', label="Agent 0")
-    plt.plot(x, vagent1, 'm-', label="Agent 1")
-    plt.plot(x, vagent2, 'k-', label="Agent 2")
+    for i in range(agents):
+        plt.plot(x, vagent[i], 'c-', label="Agent {}".format(i))
     plt.title(name2)
     plt.xlabel("Epoch")
     plt.ylabel("Distance (mm)")
@@ -340,10 +354,10 @@ if __name__ == '__main__':
 
     dir = "/Users/dianaescoboza/Documents/SUMMER22/Datasets/AnkleDS/"
     dest = "src/data/images/"
-    image_files = [f for f in os.listdir(dir+'images') if not f.startswith('.')]
+    # image_files = [f for f in os.listdir(dir+'images') if not f.startswith('.')]
     # clean_images = [f for f in os.listdir(dir+'images_clean') if not f.startswith('.')]
     # images = [f for f in os.listdir(dest) if not f.startswith('.')]
-    labels = [f for f in os.listdir(dir+"labels") if not f.startswith('.')]
+    # labels = [f for f in os.listdir(dir+"labels") if not f.startswith('.')]
 
     # ankle 0: Tibia --> 3: Tibia/Fibula
     # 1: Talus --> 4
@@ -364,17 +378,17 @@ if __name__ == '__main__':
     #     label.close()
     #     landmark.close()
 
-    data = CleanData(dir)
-    data.ImageNorm(dest,image_files,dest)
+    data = CleanData("src/data/images/")
+    data.RescaleImages()
 
     # vizualize(im, lan)
-    # logs = "src/test-sync/long-run/logs.txt"
-    # train_dist = "src/tests/test-results/train-epoch.json"
-    # val_dist = "src/tests/test-results/val-mean.json"
-    # save_dir = "src/tests/test-results/"
+    logs = "src/test-sync/myserver/logs.txt"
+    train_dist = "src/test-sync/myserver/train-epoch.json"
+    val_dist = "src/test-sync/myserver/val-mean.json"
+    save_dir = "src/test-sync/myserver/"
     # save_training(logs, save_dir)
     # plot_log(train_dist, val_dist,
-    #          "Train Mean Distance", "Validation Mean Distance", save_dir)
+    #         "Train Mean Distance (new loss)", "Validation Mean Distance (new loss)", save_dir, agents=1)
     # plot_loss("src/tests/test-results/info-epoch.json")
 
     # dic_min, dic_max, min_dist, max_dist = read_output("src/runs/Jul20_13-17-34_MacBook-Pro.local/logs.txt")

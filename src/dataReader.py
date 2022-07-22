@@ -115,8 +115,8 @@ class filesListJointUSLandmark(object): #2D joint US images
                     # transform landmarks to image space if they are in physical space
                     landmark_file = self.landmark_files[idx]
                     landmark = getLandmarksFromTXTFile(landmark_file)
-                    if np.isnan(landmark).any():
-                        continue
+                    # if np.isnan(landmark).any():
+                    #     continue
                     # scaling coor to the size of the image
                     landmark[:, 0] *= image.dims[0]
                     landmark[:, 1] *= image.dims[1]

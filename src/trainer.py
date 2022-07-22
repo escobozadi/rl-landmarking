@@ -21,7 +21,7 @@ class Trainer(object):
                  scheduler_gamma=0.5, scheduler_step_size=100):
 
         self.env = env
-        self.ids = landmarks
+        self.ids = len(np.unique(np.asarray(landmarks))) # num unique landmarks trained on
         self.eval_env = eval_env
         self.agents = env.agents
         self.image_size = image_size

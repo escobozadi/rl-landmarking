@@ -26,8 +26,10 @@ def getLandmarksFromTXTFile(file, split=' '):
     0  0.23424 0.13424
     2  0.1231  0.46364
     1  0.2856  0.68465
+    3 tibia coor
+    4 ulna coor
     """
-    landmarks = np.zeros((3, 2))
+    landmarks = np.zeros((5, 2))
     landmarks[:] = np.nan
 
     with open(file) as t:

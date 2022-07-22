@@ -5,7 +5,7 @@ from collections import deque
 class ReplayMemory(object):
     def __init__(self, max_size, state_shape, history_len, agents):
         self.max_size = int(max_size)  # Number of transitions stored in exp replay buffer. default: 100,000
-        self.state_shape = state_shape
+        self.state_shape = state_shape  # image size
         self.history_len = int(history_len)  # number of observations the network can see at once, 4
         self.agents = agents
         try:

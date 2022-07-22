@@ -373,7 +373,7 @@ class MedicalPlayer(gym.Env):
             # info[f"landmark_zpos_{i}"] = self._target_loc[i][2]
         return self._current_state(), self.reward, self.terminal, info
 
-    def move(self,act, q_values):
+    def move(self, act, q_values):
         ''' 0: up z+, 1: forward y+, 2: right x+
         3: left x-, 4: back y-, 5: down z-'''
         self._qvalues = q_values
@@ -627,6 +627,10 @@ class MedicalPlayer(gym.Env):
         Calculate the new reward based on the decrease in euclidean distance to
         the target location
         """
+        # If image doesn't contain target
+        if np.isnan(np.asarray(self._target_loc)).any():
+            return 0
+
         curr_dist = self.calcDistance(current_loc, self._target_loc[agent],
                                       self.spacing)
         next_dist = self.calcDistance(next_loc, self._target_loc[agent],

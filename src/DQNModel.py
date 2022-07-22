@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 from torch.distributions import Categorical
+import numpy as np
 
 class Network3D(nn.Module):
 
@@ -257,7 +258,7 @@ class DQN:
             lr=1e-3, scheduler_gamma=0.9, scheduler_step_size=100, ids=None):
 
         if merge_layers:
-            self.agents = ids
+            self.agents = len(np.unique(np.asarray(ids)))
         else:
             self.agents = agents
 
@@ -335,14 +336,15 @@ class DQN:
         Transitions are tuple of shape
         (states, actions, rewards, next_states, isOver)
         '''
-        curr_state = torch.tensor(transitions[0])
-        next_state = torch.tensor(transitions[3])
+        curr_state = torch.tensor(transitions[0])  # states
+        next_state = torch.tensor(transitions[3])  # next states
         terminal = torch.tensor(transitions[4]).type(torch.float)
         # terminal = torch.tensor(transitions[4]).type(torch.int)
 
         rewards = torch.clamp(
             torch.tensor(
-                transitions[2], dtype=torch.float32), -1, 1)
+                transitions[2], dtype=torch.float32), -1, 1)  # rewards
+
         # Collective rewards here refers to adding the (potentially weighted) average reward of all agents
         if self.collective_rewards == "mean":
             rewards += torch.mean(rewards, dim=1).unsqueeze(1).repeat(1, rewards.shape[1])
@@ -371,7 +373,7 @@ class DQN:
                                     bellman=batch_labels_tensor, pred=y_pred)
 
 class LossFunction(nn.Module):
-    def __init__(self, beta=0.001):
+    def __init__(self, beta=0.01):
         super(LossFunction, self).__init__()
         self.beta = beta
 
@@ -380,6 +382,8 @@ class LossFunction(nn.Module):
 
         dist_loss = torch.nn.SmoothL1Loss()(bellman.flatten(), pred.flatten())
         entropy_loss = -p.entropy().view(-1).sum()
-
+        # print("LOSS FUNCTION VALUES:")
+        # print(dist_loss)
+        # print(self.beta * entropy_loss)
         return dist_loss + (self.beta * entropy_loss)
 

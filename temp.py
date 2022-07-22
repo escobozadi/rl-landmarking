@@ -8,9 +8,11 @@ import copy
 
 
 class CleanData(object):
-    def __init__(self, dir):
+    def __init__(self, dir, landmarks_dir):
         self.images_dir = dir
+        self.landmarks_dir = landmarks_dir
         self.images_files = [f for f in os.listdir(dir) if not f.startswith('.')]
+        self.landmark_files = [f for f in os.listdir(landmarks_dir) if not f.startswith('.')]
 
     def ImageNorm(self, path, destination):
 
@@ -42,6 +44,45 @@ class CleanData(object):
             cv2.imwrite(self.images_dir + im, resized)
 
         return
+
+    def ModelFilenames(self):
+        idx = np.arange(len(self.images_files))
+        portion = 0.1  # 80/10/10 -> train/val/test
+
+        val = np.random.choice(idx, size=int(len(idx)*portion))
+        val = np.sort(val)
+        tst = np.random.choice(np.delete(idx, val), size=int(len(idx) * portion))
+        tst = np.sort(tst)
+        idx = np.delete(idx, np.append(tst, val))
+
+        # Image files
+        with open("src/data/filenames/images_test.txt", "w") as f:
+            for file in np.asarray(self.images_files)[[tst]]:
+                f.write("./data/images/" + file + "\n")
+
+        with open("src/data/filenames/images_val.txt", "w") as f:
+            for file in np.asarray(self.images_files)[[val]]:
+                f.write("./data/images/" + file + "\n")
+
+        with open("src/data/filenames/images.txt", "w") as f:
+            for file in np.asarray(self.images_files)[[idx]]:
+                f.write("./data/images/" + file + "\n")
+
+        # Landmark files
+        with open("src/data/filenames/landmarks_test.txt", "w") as f:
+            for file in np.asarray(self.landmark_files)[[tst]]:
+                f.write("./data/landmarks/" + file + "\n")
+
+        with open("src/data/filenames/landmarks_val.txt", "w") as f:
+            for file in np.asarray(self.landmark_files)[[val]]:
+                f.write("./data/landmarks/" + file + "\n")
+
+        with open("src/data/filenames/landmarks.txt", "w") as f:
+            for file in np.asarray(self.landmark_files)[[idx]]:
+                f.write("./data/landmarks/" + file + "\n")
+
+        return
+
 
 class ModelLog(object):
     def __init__(self):
@@ -378,8 +419,9 @@ if __name__ == '__main__':
     #     label.close()
     #     landmark.close()
 
-    data = CleanData("src/data/images/")
-    data.RescaleImages()
+    data = CleanData("src/data/images/", "src/data/landmarks/")
+    data.ModelFilenames()
+    # data.RescaleImages()
 
     # vizualize(im, lan)
     logs = "src/test-sync/myserver/logs.txt"

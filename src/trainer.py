@@ -21,7 +21,7 @@ class Trainer(object):
                  scheduler_gamma=0.5, scheduler_step_size=100):
 
         self.env = env
-        self.ids = len(np.unique(np.asarray(landmarks))) # num unique landmarks trained on
+        self.ids = len(np.unique(np.asarray(landmarks)))  # num unique landmarks trained on
         self.eval_env = eval_env
         self.agents = env.agents
         self.image_size = image_size
@@ -66,7 +66,7 @@ class Trainer(object):
         start = time.time()
         while episode <= self.max_episodes:  # epochs
             # Reset the environment for the start of the episode.
-            obs = self.env.reset()  # current state, (agents, x-area, y-area)
+            obs = self.env.reset()  # current state, (agents, x-area, y-area), window agent is seeing
             self.buffer._hist.clear()
             terminal = [False for _ in range(self.agents)]
             losses = []

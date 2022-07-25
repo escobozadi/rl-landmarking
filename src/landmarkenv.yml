@@ -1,4 +1,4 @@
-name: landmarkenv
+name: rl-landmark
 channels:
   - simpleitk
   - bioconda

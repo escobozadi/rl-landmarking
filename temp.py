@@ -83,6 +83,29 @@ class CleanData(object):
 
         return
 
+    def SetIDs(self, labels):
+        # ankle 0: Tibia --> 3: Tibia/Fibula
+        # 1: Talus --> 4
+        # 2: tendon --> 1
+
+        for l in labels:
+            label = open(dir+"labels/"+l, "r")
+            landmark = open(dest+"landmarks/"+l, "w")
+            for line in label:
+                if line[0] == "0":
+                    landmark.write("3" + line[1:])
+
+                elif line[0] == "1":
+                    landmark.write("4" + line[1:])
+
+                elif line[0] == "2":
+                    landmark.write("1" + line[1:])
+
+            label.close()
+            landmark.close()
+
+        return
+
 
 class ModelLog(object):
     def __init__(self):
@@ -393,41 +416,19 @@ def image_show(min_dic, max_dic, dmin, dmax):
 
 if __name__ == '__main__':
 
-    dir = "/Users/dianaescoboza/Documents/SUMMER22/Datasets/AnkleDS/"
-    dest = "src/data/images/"
-    # image_files = [f for f in os.listdir(dir+'images') if not f.startswith('.')]
-    # clean_images = [f for f in os.listdir(dir+'images_clean') if not f.startswith('.')]
-    # images = [f for f in os.listdir(dest) if not f.startswith('.')]
-    # labels = [f for f in os.listdir(dir+"labels") if not f.startswith('.')]
+    dir = "/Users/dianaescoboza/Documents/SUMMER22/Datasets/KneeDS/images/"
+    dest = "/Users/dianaescoboza/Documents/SUMMER22/Datasets/Datasets/images/"
 
-    # ankle 0: Tibia --> 3: Tibia/Fibula
-    # 1: Talus --> 4
-    # 2: tendon --> 1
-    # for l in labels:
-    #     label = open(dir+"labels/"+l, "r")
-    #     landmark = open(dest+"landmarks/"+l, "w")
-    #     for line in label:
-    #         if line[0] == "0":
-    #             landmark.write("3" + line[1:])
-    #
-    #         elif line[0] == "1":
-    #             landmark.write("4" + line[1:])
-    #
-    #         elif line[0] == "2":
-    #             landmark.write("1" + line[1:])
-    #
-    #     label.close()
-    #     landmark.close()
-
-    data = CleanData("src/data/images/", "src/data/landmarks/")
-    data.ModelFilenames()
+    # data = CleanData(dir, "src/data/landmarks/")
+    # data.ImageNorm(dir, dest)
+    # data.ModelFilenames()
     # data.RescaleImages()
 
     # vizualize(im, lan)
-    logs = "src/test-sync/myserver/logs.txt"
-    train_dist = "src/test-sync/myserver/train-epoch.json"
-    val_dist = "src/test-sync/myserver/val-mean.json"
-    save_dir = "src/test-sync/myserver/"
+    # logs = "src/test-sync/myserver/logs.txt"
+    # train_dist = "src/test-sync/myserver/train-epoch.json"
+    # val_dist = "src/test-sync/myserver/val-mean.json"
+    # save_dir = "src/test-sync/myserver/"
     # save_training(logs, save_dir)
     # plot_log(train_dist, val_dist,
     #         "Train Mean Distance (new loss)", "Validation Mean Distance (new loss)", save_dir, agents=1)

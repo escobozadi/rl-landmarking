@@ -19,6 +19,18 @@
     {
       "id": 4,
       "name": "Talus"
+    },
+    {
+      "id": 5,
+      "name": "Ulna"
+    },
+    {
+      "id": 6,
+      "name": "Triceps Tendon Insertion"
+    },
+    {
+      "id": 7,
+      "name": "Humerus"
     }
   ]
 }

@@ -206,6 +206,10 @@ if __name__ == '__main__':
         '--fixed_spawn',
                 nargs='*',  type=float,
                 help='Starting position of the agents during rollout. Randomised if not specified.',)
+    parser.add_argument(
+        '--entropy_reg',
+        help='Entropy regularization parameter',
+        default=0.001, type=float)
 
     args = parser.parse_args()
     agents = len(args.landmarks)    #number of agents

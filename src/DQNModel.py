@@ -255,7 +255,7 @@ class DQN:
     # The class initialisation function.
     def __init__(self, agents, frame_history, logger, number_actions=4, merge_layers=False,
             type="Network3d", collective_rewards=False, attention=False,
-            lr=1e-3, scheduler_gamma=0.9, scheduler_step_size=100, ids=None):
+            lr=1e-3, scheduler_gamma=0.9, scheduler_step_size=100, ids=None, entropy_reg=0.001):
 
         if merge_layers:
             self.agents = len(np.unique(np.asarray(ids)))
@@ -268,7 +268,7 @@ class DQN:
         self.device = torch.device(
             "cuda" if torch.cuda.is_available() else "cpu")
         self.logger.log(f"Using {self.device}")
-        self.loss_func = LossFunction()
+        self.loss_func = LossFunction(beta=entropy_reg)
         # Create a Q-network, which predicts the q-value for a particular state
         if type == "Network3d":
             self.q_network = Network3D(
@@ -371,6 +371,7 @@ class DQN:
 
         return self.loss_func.forward(network_pred=network_prediction,
                                     bellman=batch_labels_tensor, pred=y_pred)
+
 
 class LossFunction(nn.Module):
     def __init__(self, beta=0.01):

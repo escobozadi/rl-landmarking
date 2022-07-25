@@ -3,7 +3,6 @@ import os
 import numpy as np
 import json
 import matplotlib.pyplot as plt
-import pandas as pd
 import copy
 
 
@@ -414,10 +413,35 @@ def image_show(min_dic, max_dic, dmin, dmax):
     return
 
 
+def images_names(directory, destination, im_files):
+
+    for file in im_files:
+        image = cv2.imread(directory + file)
+        if file[-12:] == "_cleanup.png":
+            name = file[:-12] + ".png"
+        else:
+            name = file
+        cv2.imwrite(destination + name, image)
+
+    return
+
+
 if __name__ == '__main__':
 
-    dir = "/Users/dianaescoboza/Documents/SUMMER22/Datasets/KneeDS/images/"
-    dest = "/Users/dianaescoboza/Documents/SUMMER22/Datasets/Datasets/images/"
+    dest = "/Users/dianaescoboza/Documents/SUMMER22/Datasets/ElbowDS/elbow-images/"
+    dir = "/Users/dianaescoboza/Documents/SUMMER22/Datasets/ElbowDS/images/"
+
+    # im_files = [f for f in os.listdir(dest) if not f.startswith('.')]
+    # all_im = [f for f in os.listdir(dir) if not f.startswith('.')]
+    # images = []
+    # for file in all_im:
+    #     if file[-4:] != ".png":
+    #         continue
+    #
+    #     if file not in im_files:
+    #         images.append(file)
+    #
+    # images_names(dir, dest, images)
 
     # data = CleanData(dir, "src/data/landmarks/")
     # data.ImageNorm(dir, dest)

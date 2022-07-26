@@ -119,16 +119,237 @@ class CleanData(object):
 
         return
 
+    def AvgBoxes(self):
+
+        for file in self.landmark_files:
+            with open(self.labels + file, "r") as target:
+                landmark = [line.strip() for line in list(target)]
+            target.close()
+            dic = {}
+            for l in landmark:
+                info = l.split(" ")
+                id = int(info[0])
+                if id not in list(dic.keys()):
+                    dic[id] = []
+                    dic[id].append(info[1:])
+                else:
+                    dic[id].append(info[1:])
+
+            for entry in list(dic.keys()):
+                dic[entry] = np.asarray(dic[entry])
+                if len(dic[entry]) > 1:
+                    mean = np.asarray([])
+                    for i in range(len(dic[entry][0])):
+                        mean = np.append(mean, np.mean(dic[entry][:, i].astype(float)))
+                    dic[entry] = np.array([mean]).astype(str)
+
+            with open(self.landmarks_dest + file, "w") as new:
+                for k in list(dic.keys()):
+                    new.write(str(k) + " ")
+                    new.write(' '.join(dic[k][0]))
+                    new.write("\n")
+            new.close()
+
+        return
+
 
 class ModelLog(object):
     def __init__(self):
         pass
+
+    def save_training(self, path, save_path):
+
+        dist = {}
+        score = {}
+        epoch = {}
+        validation = {}
+        info_epoch = {}
+        success_train = {}
+        agents = {"0": 0, "1": 0, "2": 0}
+        epoch_num = 1
+        with open(path) as t:
+            lines = [x.strip() for x in list(t) if x]
+            for l in lines:
+                info = l.split(" ")
+                if info[0] == "train/dist" or info[0] == "train/score":
+                    ep = info[2].replace(":", "")
+                    dic = " ".join(info[3:]).replace("'", "\"")
+                    dic = json.loads(dic)
+                    dist[ep] = dic
+                    score[ep] = dic
+
+                elif info[0] == "train":
+                    ep = info[2].replace(":", "")
+                    dic = " ".join(info[3:]).replace("'", "\"")
+                    dic = json.loads(dic)
+                    if not ep in info_epoch.keys():
+                        info_epoch[ep] = {}
+
+                    for k in list(dic.keys()):
+                        info_epoch[ep][k] = dic[k]
+                    epoch_num += 1
+
+                elif info[0] == "train/mean_dist":
+                    ep = info[2].replace(":", "")
+                    dic = " ".join(info[3:]).replace("'", "\"")
+                    dic = json.loads(dic)
+                    agent = list(dic.keys())[0]
+                    if not ep in epoch.keys():
+                        epoch[ep] = {}
+
+                    epoch[ep][agent] = dic[agent]
+
+                elif info[0] == "eval/mean_dist":
+                    ep = info[2].replace(":", "")
+                    dic = " ".join(info[3:]).replace("'", "\"")
+                    dic = json.loads(dic)
+                    agent = list(dic.keys())[0]
+                    if not ep in validation.keys():
+                        validation[ep] = {}
+
+                    validation[ep][agent] = dic[agent]
+
+                elif info[0] == "distance":
+                    if not epoch_num in success_train.keys():
+                        epoch_num -= 1
+                        success_train[epoch_num] = copy.deepcopy(agents)
+                    success_train[epoch_num][info[3]] += 1
+
+        with open(save_path + "train-dist.json", "w") as file:
+            json.dump(dist, file)
+
+        with open(save_path + "train-score.json", "w") as file:
+            json.dump(score, file)
+
+        with open(save_path + "train-epoch.json", "w") as file:
+            json.dump(epoch, file)
+
+        with open(save_path + "val-mean.json", "w") as file:
+            json.dump(validation, file)
+
+        with open(save_path + "info-epoch.json", "w") as file:
+            json.dump(info_epoch, file)
+
+        with open(save_path + "success-train.json", "w") as file:
+            json.dump(success_train, file)
+
+        return
+
+    def read_output(self, file, agents=1):
+        """
+        ['number',
+        'Filename 0', 'Agent 0 pos x', 'Agent 0 pos y', 'Landmark 0 pos x', 'Landmark 0 pos y', 'Distance 0',
+        'Filename 1', 'Agent 1 pos x', 'Agent 1 pos y', 'Landmark 1 pos x', 'Landmark 1 pos y', 'Distance 1',
+        'Filename 2', 'Agent 2 pos x', 'Agent 2 pos y', 'Landmark 2 pos x', 'Landmark 2 pos y', 'Distance 2']
+        return:
+        min distances = {file name: {agent #: [[agent x, agent y], [landmark x, landmark y]]}}
+        max distances = {...}
+        min_dist = [agent 0 min dist, agent 1 ..., ...]
+        max_dist = [agent 0 max dist, agent 1 ..., ...]
+        """
+        with open(file) as f:
+            lines = [x.split() for x in list(f) if x]
+
+        labels = " ".join(lines[4]).replace("'", "\"")
+        labels = json.loads(labels)
+
+        dis_idx = []
+        file_idx = []
+        min_dist = []
+        max_dist = []
+        for i in range(agents):
+            dis_idx.append(labels.index("Distance {}".format(i)))
+            file_idx.append(labels.index("Filename {}".format(i)))
+            min_dist.append(float('inf'))
+            max_dist.append(0)
+
+        file_min = {}
+        file_max = {}
+        for line in lines[5:-2]:
+            l = " ".join(line).replace("'", "\"")
+            l = json.loads(l)
+            for i in range(agents):
+                if l[dis_idx[i]] < min_dist[i]:
+                    min_dist[i] = l[dis_idx[i]]
+                    fidx = file_idx[i]
+                    coor = [l[fidx + 1], l[fidx + 2]]
+                    land = [l[fidx + 3], l[fidx + 4]]
+                    file_min["Agent {}".format(i)] = {l[fidx]: [coor, land]}
+
+                if l[dis_idx[i]] > max_dist[i]:
+                    max_dist[i] = l[dis_idx[i]]
+                    fidx = file_idx[i]
+                    coor = [l[fidx + 1], l[fidx + 2]]
+                    land = [l[fidx + 3], l[fidx + 4]]
+                    file_max["Agent {}".format(i)] = {l[fidx]: [coor, land]}
+
+        return file_min, file_max, min_dist, max_dist
+
+
+    def image_show(self, min_dic, max_dic, dmin, dmax):
+        path = "src/data/images/"
+        save = "src/tests/test-results/"
+        size = (450, 450)
+
+        for i in range(len(dmin)):
+            min_name = list(min_dic["Agent {}".format(i)].keys())[0]
+            max_name = list(max_dic["Agent {}".format(i)].keys())[0]
+
+            im_min = cv2.imread(path + min_name + ".png")
+            im_max = cv2.imread(path + max_name + ".png")
+
+            coord = np.array(min_dic["Agent {}".format(i)][min_name])
+            coordx = np.array(max_dic["Agent {}".format(i)][max_name])
+
+            # Agent start = green, end = blue, Landmark = red
+            im1 = cv2.circle(im_min, (round(0.5 * im_min.shape[1]), round(0.5 * im_min.shape[0])),
+                             radius=3, color=(0, 255, 0), thickness=-1)
+            im1 = cv2.circle(im_min, tuple(coord[0].astype(int)),
+                             radius=4, color=(255, 0, 0), thickness=-1)
+            im1 = cv2.circle(im_min, tuple(coord[1].astype(int)),
+                             radius=4, color=(0, 0, 255), thickness=-1)
+            ######
+            im2 = cv2.circle(im_max, (round(0.5 * im_max.shape[1]), round(0.5 * im_max.shape[0])),
+                             radius=4, color=(0, 255, 0), thickness=-1)
+            im2 = cv2.circle(im_max, tuple(coordx[0].astype(int)),
+                             radius=4, color=(255, 0, 0), thickness=-1)
+            im2 = cv2.circle(im_max, tuple(coordx[1].astype(int)),
+                             radius=4, color=(0, 0, 255), thickness=-1)
+
+            im1 = cv2.resize(im1, size)
+            im2 = cv2.resize(im2, size)
+            cv2.putText(im1, "Agent {}: Distance From Landmark {}mm".format(i, round(dmin[i])), (20, 420),
+                        thickness=1, fontScale=0.4, color=(0, 255, 0), fontFace=cv2.FONT_HERSHEY_SIMPLEX)
+            cv2.putText(im2, "Agent {}: Distance From Landmark {}mm".format(i, round(dmax[i])), (20, 420),
+                        thickness=1, fontScale=0.4, color=(0, 255, 0), fontFace=cv2.FONT_HERSHEY_SIMPLEX)
+            himage = np.hstack((im1, im2))
+
+            cv2.imwrite(save + "Agent{}-Tendon".format(i) + ".png", himage)
+        # cv2.imshow("Test: Min/Max Distance Image", himage)
+        # cv2.waitKey(0)
+
+        return
 
 
 def vizualize(path, target):
     """
         ._.
     """
+    label = "a60fc140-1498___m1488_a1498_s1511_0_186050_US_.txt"
+    image = cv2.imread(dir + label[:-4] + ".png")
+    with open(elbow_landmarks + label, "r") as target:
+        landmark = [line.strip() for line in list(target)]
+    target.close()
+    dic = {}
+    for l in landmark:
+        info = l.split(" ")
+        id = int(info[0])
+        if id not in list(dic.keys()):
+            dic[id] = []
+            dic[id].append(info[1:])
+        else:
+            dic[id].append(info[1:])
+
     np_image = cv2.imread(path, cv2.IMREAD_COLOR)
     # (y: from up to down ,x)
     # transpose: (x: from right to left, y)
@@ -170,84 +391,6 @@ def vizualize(path, target):
     #
     # landmarks = np.asarray(landmarks)
     # landmarks = landmarks.reshape((-1, landmarks.shape[1]))
-
-    return
-
-
-def save_training(path, save_path):
-    dist = {}
-    score = {}
-    epoch = {}
-    validation = {}
-    info_epoch = {}
-    success_train = {}
-    agents = {"0": 0, "1": 0, "2": 0}
-    epoch_num = 1
-    with open(path) as t:
-        lines = [x.strip() for x in list(t) if x]
-        for l in lines:
-            info = l.split(" ")
-            if info[0] == "train/dist" or info[0] == "train/score":
-                ep = info[2].replace(":", "")
-                dic = " ".join(info[3:]).replace("'", "\"")
-                dic = json.loads(dic)
-                dist[ep] = dic
-                score[ep] = dic
-
-            elif info[0] == "train":
-                ep = info[2].replace(":", "")
-                dic = " ".join(info[3:]).replace("'", "\"")
-                dic = json.loads(dic)
-                if not ep in info_epoch.keys():
-                    info_epoch[ep] = {}
-
-                for k in list(dic.keys()):
-                    info_epoch[ep][k] = dic[k]
-                epoch_num += 1
-
-            elif info[0] == "train/mean_dist":
-                ep = info[2].replace(":", "")
-                dic = " ".join(info[3:]).replace("'", "\"")
-                dic = json.loads(dic)
-                agent = list(dic.keys())[0]
-                if not ep in epoch.keys():
-                    epoch[ep] = {}
-
-                epoch[ep][agent] = dic[agent]
-
-            elif info[0] == "eval/mean_dist":
-                ep = info[2].replace(":", "")
-                dic = " ".join(info[3:]).replace("'", "\"")
-                dic = json.loads(dic)
-                agent = list(dic.keys())[0]
-                if not ep in validation.keys():
-                    validation[ep] = {}
-
-                validation[ep][agent] = dic[agent]
-
-            elif info[0] == "distance":
-                if not epoch_num in success_train.keys():
-                    epoch_num -= 1
-                    success_train[epoch_num] = copy.deepcopy(agents)
-                success_train[epoch_num][info[3]] += 1
-
-    with open(save_path + "train-dist.json", "w") as file:
-        json.dump(dist, file)
-
-    with open(save_path + "train-score.json", "w") as file:
-        json.dump(score, file)
-
-    with open(save_path + "train-epoch.json", "w") as file:
-        json.dump(epoch, file)
-
-    with open(save_path + "val-mean.json", "w") as file:
-        json.dump(validation, file)
-
-    with open(save_path + "info-epoch.json", "w") as file:
-        json.dump(info_epoch, file)
-
-    with open(save_path + "success-train.json", "w") as file:
-        json.dump(success_train, file)
 
     return
 
@@ -331,102 +474,6 @@ def plot_loss(info):
     return
 
 
-def read_output(file, agents=1):
-    """
-    ['number',
-    'Filename 0', 'Agent 0 pos x', 'Agent 0 pos y', 'Landmark 0 pos x', 'Landmark 0 pos y', 'Distance 0',
-    'Filename 1', 'Agent 1 pos x', 'Agent 1 pos y', 'Landmark 1 pos x', 'Landmark 1 pos y', 'Distance 1',
-    'Filename 2', 'Agent 2 pos x', 'Agent 2 pos y', 'Landmark 2 pos x', 'Landmark 2 pos y', 'Distance 2']
-    return:
-    min distances = {file name: {agent #: [[agent x, agent y], [landmark x, landmark y]]}}
-    max distances = {...}
-    min_dist = [agent 0 min dist, agent 1 ..., ...]
-    max_dist = [agent 0 max dist, agent 1 ..., ...]
-    """
-    with open(file) as f:
-        lines = [x.split() for x in list(f) if x]
-
-    labels = " ".join(lines[4]).replace("'", "\"")
-    labels = json.loads(labels)
-
-    dis_idx = []
-    file_idx = []
-    min_dist = []
-    max_dist = []
-    for i in range(agents):
-        dis_idx.append(labels.index("Distance {}".format(i)))
-        file_idx.append(labels.index("Filename {}".format(i)))
-        min_dist.append(float('inf'))
-        max_dist.append(0)
-
-    file_min = {}
-    file_max = {}
-    for line in lines[5:-2]:
-        l = " ".join(line).replace("'", "\"")
-        l = json.loads(l)
-        for i in range(agents):
-            if l[dis_idx[i]] < min_dist[i]:
-                min_dist[i] = l[dis_idx[i]]
-                fidx = file_idx[i]
-                coor = [l[fidx + 1], l[fidx + 2]]
-                land = [l[fidx + 3], l[fidx + 4]]
-                file_min["Agent {}".format(i)] = {l[fidx]: [coor, land]}
-
-            if l[dis_idx[i]] > max_dist[i]:
-                max_dist[i] = l[dis_idx[i]]
-                fidx = file_idx[i]
-                coor = [l[fidx + 1], l[fidx + 2]]
-                land = [l[fidx + 3], l[fidx + 4]]
-                file_max["Agent {}".format(i)] = {l[fidx]: [coor, land]}
-
-    return file_min, file_max, min_dist, max_dist
-
-
-def image_show(min_dic, max_dic, dmin, dmax):
-    path = "src/data/images/"
-    save = "src/tests/test-results/"
-    size = (450, 450)
-
-    for i in range(len(dmin)):
-        min_name = list(min_dic["Agent {}".format(i)].keys())[0]
-        max_name = list(max_dic["Agent {}".format(i)].keys())[0]
-
-        im_min = cv2.imread(path + min_name + ".png")
-        im_max = cv2.imread(path + max_name + ".png")
-
-        coord = np.array(min_dic["Agent {}".format(i)][min_name])
-        coordx = np.array(max_dic["Agent {}".format(i)][max_name])
-
-        # Agent start = green, end = blue, Landmark = red
-        im1 = cv2.circle(im_min, (round(0.5 * im_min.shape[1]), round(0.5 * im_min.shape[0])),
-                         radius=3, color=(0, 255, 0), thickness=-1)
-        im1 = cv2.circle(im_min, tuple(coord[0].astype(int)),
-                         radius=4, color=(255, 0, 0), thickness=-1)
-        im1 = cv2.circle(im_min, tuple(coord[1].astype(int)),
-                         radius=4, color=(0, 0, 255), thickness=-1)
-        ######
-        im2 = cv2.circle(im_max, (round(0.5 * im_max.shape[1]), round(0.5 * im_max.shape[0])),
-                         radius=4, color=(0, 255, 0), thickness=-1)
-        im2 = cv2.circle(im_max, tuple(coordx[0].astype(int)),
-                         radius=4, color=(255, 0, 0), thickness=-1)
-        im2 = cv2.circle(im_max, tuple(coordx[1].astype(int)),
-                         radius=4, color=(0, 0, 255), thickness=-1)
-
-        im1 = cv2.resize(im1, size)
-        im2 = cv2.resize(im2, size)
-        cv2.putText(im1, "Agent {}: Distance From Landmark {}mm".format(i, round(dmin[i])), (20, 420),
-                    thickness=1, fontScale=0.4, color=(0, 255, 0), fontFace=cv2.FONT_HERSHEY_SIMPLEX)
-        cv2.putText(im2, "Agent {}: Distance From Landmark {}mm".format(i, round(dmax[i])), (20, 420),
-                    thickness=1, fontScale=0.4, color=(0, 255, 0), fontFace=cv2.FONT_HERSHEY_SIMPLEX)
-        himage = np.hstack((im1, im2))
-
-        cv2.imwrite(save + "Agent{}-Tendon".format(i) + ".png", himage)
-    # cv2.imshow("Test: Min/Max Distance Image", himage)
-    # cv2.waitKey(0)
-
-    return
-
-
 def images_names(directory, destination, im_files):
 
     for file in im_files:
@@ -442,9 +489,13 @@ def images_names(directory, destination, im_files):
 
 if __name__ == '__main__':
 
-    dir = "/Users/dianaescoboza/Documents/SUMMER22/Datasets/ElbowDS/elbow-images/"
-    elbow_landmarks = "/Users/dianaescoboza/Documents/SUMMER22/Datasets/ElbowDS/labels/"
+    dir = "/Users/dianaescoboza/Documents/SUMMER22/Datasets/KneeDS/images/"
+    knee_landmarks = "/Users/dianaescoboza/Documents/SUMMER22/Datasets/KneeDS/labels/"
     dest = "src/data/landmarks/"
+    # dest = "/Users/dianaescoboza/Documents/SUMMER22/Datasets/KneeDS/try/"
+
+    # data = CleanData(dir, knee_landmarks, dest)
+    # data.AvgBoxes()
 
     # im_files = [f for f in os.listdir(dest) if not f.startswith('.')]
     # all_im = [f for f in os.listdir(dir) if not f.startswith('.')]
@@ -458,13 +509,43 @@ if __name__ == '__main__':
     #
     # images_names(dir, dest, images)
 
-    # data = CleanData(dir, elbow_landmarks, dest)
-    # data.SetIDs("elbow")
-    # data.ImageNorm(dir, dest)
-    # data.ModelFilenames()
-    # data.RescaleImages()
+    # label = "a60fc140-1498___m1488_a1498_s1511_0_186050_US_.txt"
+    # image = cv2.imread(dir + label[:-4] + ".png")
+    # y = image.shape[0]
+    # x = image.shape[1]
+    # with open(elbow_landmarks + label, "r") as target:
+    #     landmark = [line.strip() for line in list(target)]
+    # target.close()
+    # dic = {}
+    # for l in landmark:
+    #     info = l.split(" ")
+    #     id = int(info[0])
+    #     if id not in list(dic.keys()):
+    #         dic[id] = []
+    #         dic[id].append(info[1:])
+    #     else:
+    #         dic[id].append(info[1:])
+    #
+    # for k in list(dic.keys()):
+    #     s = str(k) + ' ' + ' '.join(dic[k][0])
+    #
+    #     print(s)
+
+    # dic[1] = np.asarray(dic[1]).astype(float)
+    # dic[1][:, 0] *= x
+    # dic[1][:, 1] *= y
+    #
+    # for i in range(len(dic[1])):
+    #     image = cv2.circle(image, (int(dic[1][i][0]), int(dic[1][i][1])), radius=4, color=255, thickness=-1)
+    #
+    # xavg = np.mean(dic[1][:, 0]).astype(int)
+    # yavg = np.mean(dic[1][:, 1]).astype(int)
+    # np_image = cv2.circle(image, (xavg, yavg), radius=6, color=(0, 0, 255), thickness=-1)
+    # cv2.imshow("image", image)  # image.transpose(1, 0))
+    # cv2.waitKey(0)
 
     # vizualize(im, lan)
+
     # logs = "src/test-sync/myserver/logs.txt"
     # train_dist = "src/test-sync/myserver/train-epoch.json"
     # val_dist = "src/test-sync/myserver/val-mean.json"

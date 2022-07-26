@@ -58,6 +58,147 @@ def get_player(directory=None, files_list=None, landmark_ids=None, viz=False,
         env = FrameStack(env, FRAME_HISTORY, agents)
     return env
 
+def get_args(parser):
+    parser.add_argument(
+        '--load',
+        help='Path to the model to load')
+    parser.add_argument(
+        '--task',
+        help='''task to perform,
+                    must load a pretrained model if task is "play" or "eval"''',
+        choices=['play', 'eval', 'train'], default='train')
+    parser.add_argument(
+        '--file_type',
+        help='Type of the training and validation files',
+        choices=['brain', 'cardiac', 'fetal', 'joint'], default='joint')
+    parser.add_argument(
+        '--files',
+        type=argparse.FileType('r'), nargs='+',
+        help="""Filepath to the text file that contains list of images.
+                    Each line of this file is a full path to an image scan.
+                    For (task == train or eval) there should be two input files
+                    ['images', 'landmarks']""")
+    parser.add_argument(
+        '--val_files',
+        type=argparse.FileType('r'), nargs='+',
+        help="""Filepath to the text file that contains list of validation
+                    images. Each line of this file is a full path to an image scan.
+                    For (task == train or eval) there should be two input files
+                    ['images', 'landmarks']""")
+    parser.add_argument(
+        '--saveGif',
+        help='Save gif image of the game',
+        action='store_true', default=False)
+    parser.add_argument(
+        '--saveVideo',
+        help='Save video of the game',
+        action='store_true', default=False)
+    parser.add_argument(
+        '--log_dir',
+        help='Store logs in this directory during training.',
+        default='runs', type=str)
+    parser.add_argument(
+        '--log_comment',
+        help='Suffix appended to the name of the log folder name, which is the current time.',
+        default='', type=str)
+    parser.add_argument(
+        '--landmarks',
+        nargs='*', help='Landmarks to use in the images',
+        type=int, default=[1])
+    parser.add_argument(
+        '--model_name',
+        help='Models implemented are: Network3d, CommNet',
+        default="CommNet", choices=['CommNet', 'Network3d'], type=str)
+    parser.add_argument(
+        '--batch_size',
+        help='Size of each batch', default=64, type=int)
+    parser.add_argument(
+        '--memory_size',
+        help="""Number of transitions stored in exp replay buffer.
+                    If too much is allocated training may abruptly stop.""",
+        default=1e5, type=int)
+    parser.add_argument(
+        '--init_memory_size',
+        help='Number of transitions stored in exp replay before training',
+        default=3e4, type=int)
+    parser.add_argument(
+        '--discount',
+        help='Discount factor used in the Bellman equation',
+        default=0.9, type=float)
+    parser.add_argument(
+        '--lr',
+        help='Starting learning rate',
+        default=1e-3, type=float)
+    parser.add_argument(
+        '--scheduler_gamma',
+        help='Multiply the learning rate by this value every scheduler_step_size epochs',
+        default=0.5, type=float)
+    parser.add_argument(
+        '--scheduler_step_size',
+        help='Every scheduler_step_size epochs, the learning rate is multiplied by scheduler_gamma',
+        default=100, type=int)
+    parser.add_argument(
+        '--max_episodes',
+        help='"Number of episodes to train for"',
+        default=1e5, type=int)
+    parser.add_argument(
+        '--steps_per_episode',
+        help='Maximum steps per episode',
+        default=200, type=int)
+    parser.add_argument(
+        '--target_update_freq',
+        help='Number of epochs between each target network update',
+        default=10, type=int)
+    parser.add_argument(
+        '--save_freq',
+        help='Saves network every save_freq steps',
+        default=1000, type=int)
+    parser.add_argument(
+        '--delta',
+        help="""Amount to decreases epsilon each episode,
+                    for the epsilon-greedy policy""",
+        default=1e-4, type=float)
+    parser.add_argument(
+        '--viz',
+        help='Size of the window, None for no visualisation',
+        default=0.01, type=float)
+    parser.add_argument(
+        '--multiscale',
+        help='Reduces size of voxel around the agent when it oscillates',
+        dest='multiscale', action='store_true')
+    parser.set_defaults(multiscale=False)
+    parser.add_argument(
+        '--write',
+        help='Saves the training logs', dest='write',
+        action='store_true')
+    parser.set_defaults(write=False)
+    parser.add_argument(
+        '--team_reward',
+        help='Refers to adding the (potentially weighted) average reward of all agents to their individiual rewards',
+        choices=[None, 'mean', 'attention'], default=None)
+    parser.add_argument(
+        '--attention',
+        help='Use attention for communication channel in C-MARL/CommNet', dest='attention',
+        action='store_true')
+    parser.set_defaults(attention=False)
+    parser.add_argument(
+        '--train_freq',
+        help="""Number of agent steps between each training step on one
+                    mini-batch""",
+        default=1, type=int)
+    parser.add_argument(
+        '--seed',
+        help="Random seed for both training and evaluating. If none is provided, no seed will be set", type=int)
+    parser.add_argument(
+        '--fixed_spawn',
+        nargs='*', type=float,
+        help='Starting position of the agents during rollout. Randomised if not specified.', )
+    parser.add_argument(
+        '--entropy_reg',
+        help='Entropy regularization parameter',
+        default=0.001, type=float)
+    return parser.parse_args()
+
 ###############################################################################
 ###############################################################################
 
@@ -72,146 +213,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
-    parser.add_argument(
-        '--load',
-                help='Path to the model to load')
-    parser.add_argument(
-        '--task',
-                help='''task to perform,
-                must load a pretrained model if task is "play" or "eval"''',
-                choices=['play', 'eval', 'train'], default='train')
-    parser.add_argument(
-        '--file_type',
-                help='Type of the training and validation files',
-                choices=['brain', 'cardiac', 'fetal', 'joint'], default='joint')
-    parser.add_argument(
-        '--files',
-                type=argparse.FileType('r'), nargs='+',
-                help="""Filepath to the text file that contains list of images.
-                Each line of this file is a full path to an image scan.
-                For (task == train or eval) there should be two input files
-                ['images', 'landmarks']""")
-    parser.add_argument(
-        '--val_files',
-                type=argparse.FileType('r'), nargs='+',
-                help="""Filepath to the text file that contains list of validation
-                images. Each line of this file is a full path to an image scan.
-                For (task == train or eval) there should be two input files
-                ['images', 'landmarks']""")
-    parser.add_argument(
-        '--saveGif',
-                help='Save gif image of the game',
-                action='store_true', default=False)
-    parser.add_argument(
-        '--saveVideo',
-                help='Save video of the game',
-                action='store_true', default=False)
-    parser.add_argument(
-        '--log_dir',
-                help='Store logs in this directory during training.',
-                default='runs', type=str)
-    parser.add_argument(
-        '--log_comment',
-                help='Suffix appended to the name of the log folder name, which is the current time.',
-                default='', type=str)
-    parser.add_argument(
-        '--landmarks',
-                nargs='*', help='Landmarks to use in the images',
-                type=int, default=[1])
-    parser.add_argument(
-        '--model_name',
-                help='Models implemented are: Network3d, CommNet',
-                default="CommNet", choices=['CommNet', 'Network3d'], type=str)
-    parser.add_argument(
-        '--batch_size',
-                help='Size of each batch', default=64, type=int)
-    parser.add_argument(
-        '--memory_size',
-                help="""Number of transitions stored in exp replay buffer.
-                If too much is allocated training may abruptly stop.""",
-                default=1e5, type=int)
-    parser.add_argument(
-        '--init_memory_size',
-                help='Number of transitions stored in exp replay before training',
-                default=3e4, type=int)
-    parser.add_argument(
-        '--discount',
-                help='Discount factor used in the Bellman equation',
-                default=0.9, type=float)
-    parser.add_argument(
-        '--lr',
-                help='Starting learning rate',
-                default=1e-3, type=float)
-    parser.add_argument(
-        '--scheduler_gamma',
-                help='Multiply the learning rate by this value every scheduler_step_size epochs',
-                default=0.5, type=float)
-    parser.add_argument(
-        '--scheduler_step_size',
-                help='Every scheduler_step_size epochs, the learning rate is multiplied by scheduler_gamma',
-                default=100, type=int)
-    parser.add_argument(
-        '--max_episodes',
-                help='"Number of episodes to train for"',
-                default=1e5, type=int)
-    parser.add_argument(
-        '--steps_per_episode',
-                help='Maximum steps per episode',
-                default=200, type=int)
-    parser.add_argument(
-        '--target_update_freq',
-                help='Number of epochs between each target network update',
-                default=10, type=int)
-    parser.add_argument(
-        '--save_freq',
-                help='Saves network every save_freq steps',
-                default=1000, type=int)
-    parser.add_argument(
-        '--delta',
-                help="""Amount to decreases epsilon each episode,
-                for the epsilon-greedy policy""",
-                default=1e-4, type=float)
-    parser.add_argument(
-        '--viz',
-                help='Size of the window, None for no visualisation',
-                default=0.01, type=float)
-    parser.add_argument(
-        '--multiscale',
-                help='Reduces size of voxel around the agent when it oscillates',
-                dest='multiscale', action='store_true')
-    parser.set_defaults(multiscale=False)
-    parser.add_argument(
-        '--write',
-                help='Saves the training logs', dest='write',
-                action='store_true')
-    parser.set_defaults(write=False)
-    parser.add_argument(
-        '--team_reward',
-                help='Refers to adding the (potentially weighted) average reward of all agents to their individiual rewards',
-                choices=[None, 'mean', 'attention'], default=None)
-    parser.add_argument(
-        '--attention',
-                help='Use attention for communication channel in C-MARL/CommNet', dest='attention',
-                action='store_true')
-    parser.set_defaults(attention=False)
-    parser.add_argument(
-        '--train_freq',
-                help="""Number of agent steps between each training step on one
-                mini-batch""",
-                default=1, type=int)
-    parser.add_argument(
-        '--seed',
-                help="Random seed for both training and evaluating. If none is provided, no seed will be set", type=int)
-    parser.add_argument(
-        '--fixed_spawn',
-                nargs='*',  type=float,
-                help='Starting position of the agents during rollout. Randomised if not specified.',)
-    parser.add_argument(
-        '--entropy_reg',
-        help='Entropy regularization parameter',
-        default=0.001, type=float)
-
-    args = parser.parse_args()
+    args = get_args(parser)
     agents = len(args.landmarks)    #number of agents
     # check valid number of agents:
     assert agents > 0

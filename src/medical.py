@@ -23,6 +23,8 @@ import os
 import warnings
 import pyglet
 
+# from numba import njit
+
 def warn(*args, **kwargs):
     pass
 
@@ -249,7 +251,9 @@ class MedicalPlayer(gym.Env):
                     self._location[i], self._target_loc[i],
                     self.spacing) for i in range(self.agents)]
 
-    def calcDistance(self, points1, points2, spacing=(1, 1)):
+    # @njit(nopython=True, nogil=True, fastmath=True)
+    @staticmethod
+    def calcDistance(points1, points2, spacing=(1, 1)):
         """ calculate the distance between two points in mm"""
         spacing = np.array(spacing)
         points1 = spacing * np.array(points1)

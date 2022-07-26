@@ -7,6 +7,11 @@ import SimpleITK as sitk
 import numpy as np
 import warnings
 import cv2
+from torchvision import transforms
+from efficientnet_pytorch import EfficientNet
+# EfficientNet.get_image_size()
+
+# from numba import njit
 
 warnings.simplefilter("ignore", category=ResourceWarning)
 
@@ -17,19 +22,20 @@ __all__ = [
     'filesListFetalUSLandmark',
     'NiftiImage']
 
-
+# @njit(nogil=True, fastmath=True)
 def getLandmarksFromTXTFile(file, split=' '):
     """
-    Extract each landmark point line by line from a text file, and return
-    vector containing all landmarks.
-    file: tendon_id = 1
-    0  0.23424 0.13424
-    2  0.1231  0.46364
-    1  0.2856  0.68465
-    3 tibia coor
-    4 ulna coor
+    Extract each landmark point line by line from a text file, and return vector containing all landmarks.
+    0  femur
+    2  tendon
+    1  patella
+    3  tibia/fibula
+    4  talus
+    5  ulna
+    6  triceps tendon insertion
+    7  humerus
     """
-    landmarks = np.zeros((5, 2))
+    landmarks = np.zeros((8, 2))
     landmarks[:] = np.nan
 
     with open(file) as t:

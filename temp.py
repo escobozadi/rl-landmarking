@@ -7,9 +7,10 @@ import copy
 
 
 class CleanData(object):
-    def __init__(self, dir, landmarks_dir):
+    def __init__(self, dir, landmarks_dir, land_dest):
         self.images_dir = dir
-        self.landmarks_dir = landmarks_dir
+        self.labels = landmarks_dir
+        self.landmarks_dest = land_dest
         self.images_files = [f for f in os.listdir(dir) if not f.startswith('.')]
         self.landmark_files = [f for f in os.listdir(landmarks_dir) if not f.startswith('.')]
 
@@ -82,23 +83,36 @@ class CleanData(object):
 
         return
 
-    def SetIDs(self, labels):
-        # ankle 0: Tibia --> 3: Tibia/Fibula
+    def SetIDs(self, dataset=None):
+        # ankle
+        # 0: Tibia --> 3: Tibia/Fibula
         # 1: Talus --> 4
         # 2: tendon --> 1
+        # elbow,
+        # 0: Ulna --> 5
+        # 1: triceps tendon insertion --> 6
+        # 2: humerus --> 7
+        # 3: quadriceps tendon --> 1
+        if dataset == "ankle":
+            new_ids = ["3", "4", "1"]
+        else:  # dataset == "elbow":
+            new_ids = ["5", "6", "7", "1"]
 
-        for l in labels:
-            label = open(dir+"labels/"+l, "r")
-            landmark = open(dest+"landmarks/"+l, "w")
+        for l in self.landmark_files:
+            label = open(self.labels + l, "r")
+            landmark = open(self.landmarks_dest + l, "w")
             for line in label:
                 if line[0] == "0":
-                    landmark.write("3" + line[1:])
+                    landmark.write(new_ids[0] + line[1:])
 
                 elif line[0] == "1":
-                    landmark.write("4" + line[1:])
+                    landmark.write(new_ids[1] + line[1:])
 
                 elif line[0] == "2":
-                    landmark.write("1" + line[1:])
+                    landmark.write(new_ids[2] + line[1:])
+
+                elif line[0] == "3":
+                    landmark.write(new_ids[3] + line[1:])
 
             label.close()
             landmark.close()
@@ -428,8 +442,9 @@ def images_names(directory, destination, im_files):
 
 if __name__ == '__main__':
 
-    dest = "/Users/dianaescoboza/Documents/SUMMER22/Datasets/ElbowDS/elbow-images/"
-    dir = "/Users/dianaescoboza/Documents/SUMMER22/Datasets/ElbowDS/images/"
+    dir = "/Users/dianaescoboza/Documents/SUMMER22/Datasets/ElbowDS/elbow-images/"
+    elbow_landmarks = "/Users/dianaescoboza/Documents/SUMMER22/Datasets/ElbowDS/labels/"
+    dest = "src/data/landmarks/"
 
     # im_files = [f for f in os.listdir(dest) if not f.startswith('.')]
     # all_im = [f for f in os.listdir(dir) if not f.startswith('.')]
@@ -443,7 +458,8 @@ if __name__ == '__main__':
     #
     # images_names(dir, dest, images)
 
-    # data = CleanData(dir, "src/data/landmarks/")
+    # data = CleanData(dir, elbow_landmarks, dest)
+    # data.SetIDs("elbow")
     # data.ImageNorm(dir, dest)
     # data.ModelFilenames()
     # data.RescaleImages()

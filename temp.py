@@ -7,7 +7,7 @@ import copy
 
 
 class CleanData(object):
-    def __init__(self, dir, landmarks_dir, land_dest):
+    def __init__(self, dir, landmarks_dir, land_dest=None):
         self.images_dir = dir
         self.labels = landmarks_dir
         self.landmarks_dest = land_dest
@@ -82,6 +82,7 @@ class CleanData(object):
                 f.write("./data/landmarks/" + file + "\n")
 
         return
+
 
     def SetIDs(self, dataset=None):
         # ankle
@@ -492,10 +493,6 @@ if __name__ == '__main__':
     dir = "/Users/dianaescoboza/Documents/SUMMER22/Datasets/KneeDS/images/"
     knee_landmarks = "/Users/dianaescoboza/Documents/SUMMER22/Datasets/KneeDS/labels/"
     dest = "src/data/landmarks/"
-    # dest = "/Users/dianaescoboza/Documents/SUMMER22/Datasets/KneeDS/try/"
-
-    # data = CleanData(dir, knee_landmarks, dest)
-    # data.AvgBoxes()
 
     # im_files = [f for f in os.listdir(dest) if not f.startswith('.')]
     # all_im = [f for f in os.listdir(dir) if not f.startswith('.')]

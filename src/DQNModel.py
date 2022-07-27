@@ -86,10 +86,11 @@ class Network3D(nn.Module):
 
 class CommNet(nn.Module):
 
-    def __init__(self, agents, landmarks, frame_history, batch_size=64, number_actions=4, xavier=True, attention=False):
+    def __init__(self, agents, landmarks, frame_history, number_actions=4, xavier=True, attention=False):
         super(CommNet, self).__init__()
 
         self.agents = agents
+        self.num_actions = number_actions
         self.frame_history = frame_history
         self.device = torch.device(
             "cuda" if torch.cuda.is_available() else "cpu")
@@ -138,7 +139,6 @@ class CommNet(nn.Module):
         self.prelu2 = nn.PReLU().to(self.device)
         self.prelu3 = nn.PReLU().to(self.device)
 
-        self.input2 = torch.zeros([batch_size, agents, 64*4*4])
         self.fc1 = nn.ModuleList(
             [nn.Linear(
                 in_features= 64*4*4 * 2,
@@ -148,7 +148,6 @@ class CommNet(nn.Module):
         self.prelu4 = nn.ModuleList(
             [nn.PReLU().to(self.device) for _ in range(self.agents)])
 
-        self.input3 = torch.zeros([batch_size, agents, 256])
         self.fc2 = nn.ModuleList(
             [nn.Linear(
                 in_features=256 * 2,
@@ -158,7 +157,6 @@ class CommNet(nn.Module):
         self.prelu5 = nn.ModuleList(
             [nn.PReLU().to(self.device) for _ in range(self.agents)])
 
-        self.input4 = torch.zeros([batch_size, agents, 128])
         self.fc3 = nn.ModuleList(
             [nn.Linear(
                 in_features=128 * 2,
@@ -166,7 +164,6 @@ class CommNet(nn.Module):
                 self.device) for _ in range(
                 self.agents)])
 
-        self.output = torch.zeros([batch_size, agents, number_actions])
         self.attention = attention
         if self.attention:
                 self.comm_att1 = nn.ParameterList([nn.Parameter(torch.randn(agents)) for _ in range(agents)])
@@ -186,6 +183,7 @@ class CommNet(nn.Module):
         (batch_size, agents, number_actions)
         # Agents for forward & back propagation [1,2,5]
         """
+        self.InitInputs(input.shape[0])
         input1 = input.to(self.device) / 255.0
 
         if agents_training is None:
@@ -281,16 +279,15 @@ class CommNet(nn.Module):
             # output.append(x)
         # output = torch.stack(output, dim=1)
 
-        self.InitInputs()
         self.output = self.output.cpu()
         return self.output[:, agents]
 
 
-    def InitInputs(self):
-        self.input2 = torch.zeros(self.input2.shape)
-        self.input3 = torch.zeros(self.input3.shape)
-        self.input4 = torch.zeros(self.input4.shape)
-        self.output = torch.zeros(self.output.shape)
+    def InitInputs(self, batch):
+        self.input2 = torch.zeros([batch, self.agents, 64*4*4])
+        self.input3 = torch.zeros([batch, self.agents, 256])
+        self.input4 = torch.zeros([batch, self.agents, 128])
+        self.output = torch.zeros([batch, self.agents, self.num_actions])
         return
 
 class DQN:

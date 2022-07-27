@@ -26,6 +26,7 @@ class ReplayMemory(object):
         """Append the replay memory with most recent state
         Args:
             obs: latest_state
+            # current state, (agents, x-area, y-area), window agent is seeing
         """
         # increase current memory size if it is not full yet
         index = self._curr_pos  # current number of transitions stored in buffer

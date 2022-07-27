@@ -100,15 +100,14 @@ class filesListJointUSLandmark(object): #2D joint US images
     def num_files(self):
         return len(self.image_files)
 
-    def sample_circular(self, landmark_ids, shuffle=False):
+    def sample_circular(self, landmark_ids, shuffle=True):
         """ return a random sampled ImageRecord from the list of files
         to sample a new image, should return: image, target loc, file path, spacing
         spacing: consistent unit, mm
         image:  image.dims
         landmark_ids: agent landmark, 0 0 0"""
         if shuffle:
-            # TODO: could use PyTorch shuffles
-            # indexes = rng.choice(x, len(x), replace=False)
+            indexes = np.random.choice(np.arange(self.num_files), self.num_files, replace=False)
             pass
         else:
             indexes = np.arange(self.num_files)
@@ -116,8 +115,6 @@ class filesListJointUSLandmark(object): #2D joint US images
             for idx in indexes:
                 # png for 2d images np.isnan(m[1]).any()
                 sitk_image, image = PngImage().decode(self.image_files[idx])
-                # print("CURRENT IMAGES")
-                # print(image.data)
                 if self.returnLandmarks:
                     # transform landmarks to image space if they are in physical space
                     landmark_file = self.landmark_files[idx]

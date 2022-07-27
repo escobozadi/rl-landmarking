@@ -77,14 +77,14 @@ class Trainer(object):
                 index = self.buffer.append_obs(obs)  # index in buffer of the position of every agent
                 acts, q_values = self.get_next_actions(
                     self.buffer.recent_state())  # recent_state = (agents, history length, image size)
-                next_obs, reward, terminal, info = self.env.step(
+                next_obs, reward, terminal, info, agents_training = self.env.step(
                     np.copy(acts), q_values, terminal)
                 self.buffer.append_effect((index, obs, acts, reward, terminal))
                 score = [sum(x) for x in zip(score, reward)]
                 obs = next_obs
                 if acc_steps % self.train_freq == 0:
                     mini_batch = self.buffer.sample(self.batch_size)  #
-                    loss = self.dqn.train_q_network(mini_batch, self.gamma)
+                    loss = self.dqn.train_q_network(mini_batch, self.gamma, agents_training)
                     losses.append(loss)
                 if all(t for t in terminal):
                     break
@@ -124,7 +124,7 @@ class Trainer(object):
                 steps += 1
                 index = self.buffer.append_obs(obs)
                 acts, q_values = self.get_next_actions(obs)
-                next_obs, reward, terminal, info = self.env.step(
+                next_obs, reward, terminal, info, _ = self.env.step(
                     acts, q_values, terminal)
                 self.buffer.append_effect((index, obs, acts, reward, terminal))
                 obs = next_obs

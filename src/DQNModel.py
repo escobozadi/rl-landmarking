@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 from torch.distributions import Categorical
 import numpy as np
+from torch.autograd import Variable
 
 class Network3D(nn.Module):
 
@@ -85,7 +86,7 @@ class Network3D(nn.Module):
 
 class CommNet(nn.Module):
 
-    def __init__(self, agents, landmarks, frame_history, number_actions=4, xavier=True, attention=False):
+    def __init__(self, agents, landmarks, frame_history, batch_size=64, number_actions=4, xavier=True, attention=False):
         super(CommNet, self).__init__()
 
         self.agents = agents
@@ -137,6 +138,7 @@ class CommNet(nn.Module):
         self.prelu2 = nn.PReLU().to(self.device)
         self.prelu3 = nn.PReLU().to(self.device)
 
+        self.input2 = torch.zeros([batch_size, agents, 64*4*4])
         self.fc1 = nn.ModuleList(
             [nn.Linear(
                 in_features= 64*4*4 * 2,
@@ -145,6 +147,8 @@ class CommNet(nn.Module):
                 self.agents)])
         self.prelu4 = nn.ModuleList(
             [nn.PReLU().to(self.device) for _ in range(self.agents)])
+
+        self.input3 = torch.zeros([batch_size, agents, 256])
         self.fc2 = nn.ModuleList(
             [nn.Linear(
                 in_features=256 * 2,
@@ -153,6 +157,8 @@ class CommNet(nn.Module):
                 self.agents)])
         self.prelu5 = nn.ModuleList(
             [nn.PReLU().to(self.device) for _ in range(self.agents)])
+
+        self.input4 = torch.zeros([batch_size, agents, 128])
         self.fc3 = nn.ModuleList(
             [nn.Linear(
                 in_features=128 * 2,
@@ -160,6 +166,7 @@ class CommNet(nn.Module):
                 self.device) for _ in range(
                 self.agents)])
 
+        self.output = torch.zeros([batch_size, agents, number_actions])
         self.attention = attention
         if self.attention:
                 self.comm_att1 = nn.ParameterList([nn.Parameter(torch.randn(agents)) for _ in range(agents)])
@@ -171,18 +178,25 @@ class CommNet(nn.Module):
                 if type(module) in [nn.Conv3d, nn.Linear]:
                     torch.nn.init.xavier_uniform(module.weight)
 
-    def forward(self, input):
+    def forward(self, input, agents_training=None):
         """
         # Input is a tensor of size
         (batch_size, agents, frame_history, *image_size)
         # Output is a tensor of size
         (batch_size, agents, number_actions)
+        # Agents for forward & back propagation [1,2,5]
         """
         input1 = input.to(self.device) / 255.0
 
+        if agents_training is None:
+            agents = np.arange(self.agents)
+        else:
+            agents = agents_training
+
         # Shared layers
-        input2 = []
-        for i in range(self.agents):
+        # input2 = []
+        # for i in range(self.agents):
+        for i in agents:
             x = input1[:, i]    # (64,1,4,61,61)
             x = self.conv0(x)
             # x = self.conv0(x.float())   # (64,1,32,59,59)
@@ -197,59 +211,87 @@ class CommNet(nn.Module):
             x = self.conv3(x)       #(64,4,4)
             x = self.prelu3(x)
             x = x.view(-1, 64*4*4)     # (64,2,512)
-            input2.append(x)
+            self.input2[:, i] = x
+            # input2.append(x)
         # output (64,2,512)
-        input2 = torch.stack(input2, dim=1)  # batch-size, agents,
-         
+        # input2 = torch.stack(input2, dim=1)  # batch-size, agents,
+        # zeros = torch.zeros([input2.shape[0], self.agents, input2.shape[2]])
+        # for i in range(len(agents)):
+        #     zeros[:, agents[i]] = input2[:, i]
+        # input2 = zeros
+
         # Communication layers
         if self.attention:
-            comm = torch.cat([torch.sum((input2.transpose(1, 2) * nn.Softmax(dim=0)(self.comm_att1[i])), dim=2).unsqueeze(0)
+            # TODO: ATTENTION ONLY ON THE AGENTS CURRENTLY TRAINING
+            comm = torch.cat([torch.sum((self.input2.transpose(1, 2) * nn.Softmax(dim=0)(self.comm_att1[i])), dim=2).unsqueeze(0)
                               for i in range(self.agents)])
         else:
-            comm = torch.mean(input2, dim=1)  # (64,1,512)
+            # if len(agents) > 1:
+            comm = torch.mean(self.input2, dim=1)  # (64,1,512)
             # comm = torch.mean(input2, axis=1)
             comm = comm.unsqueeze(0).repeat(self.agents, *[1]*len(comm.shape))  # (agents, 64,1,512)
-        
-        input3 = []
-        for i in range(self.agents):
-            x = input2[:, i]
+            # else:
+            #     comm = torch.as_tensor(input2).repeat(self.agents, *[1]*len(input2.shape))
+            #     comm = comm.reshape([comm.shape[1], comm.shape[0], -1])
+            #     print("Communication shape: {}".format(comm.shape))
+
+        # input3 = []
+        #for i in range(self.agents):
+        for i in agents:    # [1,3]
+            x = self.input2[:, i]
             x = self.fc1[i](torch.cat((x, comm[i]), dim=-1))
             # x = self.fc1[i](torch.cat((x, comm[i]), axis=-1))
-            input3.append(self.prelu4[i](x))
-        input3 = torch.stack(input3, dim=1)
+            self.input3[:, i] = self.prelu4[i](x)
+            # input3.append(self.prelu4[i](x))
+        # input3 = torch.stack(input3, dim=1)
 
         if self.attention:
-            comm = torch.cat([torch.sum((input3.transpose(1, 2) * nn.Softmax(dim=0)(self.comm_att2[i])), dim=2).unsqueeze(0)
+            comm = torch.cat([torch.sum((self.input3.transpose(1, 2) * nn.Softmax(dim=0)(self.comm_att2[i])), dim=2).unsqueeze(0)
                               for i in range(self.agents)])
         else:
-            comm = torch.mean(input3, dim=1)
+            comm = torch.mean(self.input3, dim=1)
             # comm = torch.mean(input3, axis=1)
             comm = comm.unsqueeze(0).repeat(self.agents, *[1]*len(comm.shape))
-        input4 = []
-        for i in range(self.agents):
-            x = input3[:, i]
+
+        # input4 = []
+        # for i in range(self.agents):
+        for i in agents:
+            x = self.input3[:, i]
             x = self.fc2[i](torch.cat((x, comm[i]), dim=-1))
             # x = self.fc2[i](torch.cat((x, comm[i]), axis=-1))
-            input4.append(self.prelu5[i](x))
-        input4 = torch.stack(input4, dim=1)
+            self.input4[:, i] = self.prelu5[i](x)
+            # input4.append(self.prelu5[i](x))
+        # input4 = torch.stack(input4, dim=1)
 
         if self.attention:
-            comm = torch.cat([torch.sum((input4.transpose(1, 2) * nn.Softmax(dim=0)(self.comm_att3[i])), dim=2).unsqueeze(0)
+            comm = torch.cat([torch.sum((self.input4.transpose(1, 2) * nn.Softmax(dim=0)(self.comm_att3[i])), dim=2).unsqueeze(0)
                               for i in range(self.agents)])
         else:
-            comm = torch.mean(input4, dim=1)
+            comm = torch.mean(self.input4, dim=1)
             # comm = torch.mean(input4, axis=1)
             comm = comm.unsqueeze(0).repeat(self.agents, *[1]*len(comm.shape))
         
-        output = []
-        for i in range(self.agents):
-            x = input4[:, i]
+        # output = []
+        # for i in range(self.agents):
+        for i in agents:
+            x = self.input4[:, i]
             x = self.fc3[i](torch.cat((x, comm[i]), dim=-1))
             # x = self.fc3[i](torch.cat((x, comm[i]), axis=-1))
-            output.append(x)
-        output = torch.stack(output, dim=1)
+            self.output[:, i] = x
+            # output.append(x)
+        # output = torch.stack(output, dim=1)
 
-        return output.cpu()
+        self.InitInputs()
+        self.output = self.output.cpu()
+        return self.output[:, agents]
+
+
+    def InitInputs(self):
+        self.input2 = torch.zeros(self.input2.shape)
+        self.input3 = torch.zeros(self.input3.shape)
+        self.input4 = torch.zeros(self.input4.shape)
+        self.output = torch.zeros(self.output.shape)
+        return
 
 class DQN:
     # The class initialisation function.
@@ -318,23 +360,26 @@ class DQN:
     # Function that is called whenever we want to train the Q-network. Each
     # call to this function takes in a transition tuple containing the data we
     # use to update the Q-network.
-    def train_q_network(self, transitions, discount_factor):
+    def train_q_network(self, transitions, discount_factor, targets):
+        #  targets: list of agents with targets
         # Set all the gradients stored in the optimiser to zero.
         self.optimiser.zero_grad()
         # Calculate the loss for this transition.
-        loss = self._calculate_loss(transitions, discount_factor)
+        loss = self._calculate_loss(transitions, discount_factor, targets)
         # Compute the gradients based on this loss, i.e. the gradients of the
         # loss with respect to the Q-network parameters.
+
         loss.backward()
         # Take one gradient step to update the Q-network.
         self.optimiser.step()
         return loss.item()
 
     # Function to calculate the loss for a particular transition.
-    def _calculate_loss(self, transitions, discount_factor):
+    def _calculate_loss(self, transitions, discount_factor, targets):
         '''
         Transitions are tuple of shape
         (states, actions, rewards, next_states, isOver)
+        target: indices of the agents with a target in current image
         '''
         curr_state = torch.tensor(transitions[0])  # states
         next_state = torch.tensor(transitions[3])  # next states
@@ -351,30 +396,32 @@ class DQN:
         elif self.collective_rewards == "attention":
             rewards = rewards + torch.matmul(rewards, nn.Softmax(dim=0)(self.q_network.rew_att))
 
-        y = self.target_network.forward(next_state)
+        # Forward only on the agents training
+        y = self.target_network.forward(next_state, targets)
+        # print("Agents training: {}".format(targets))
         # dim (batch_size, agents, number_actions)
-        y = y.view(-1, self.agents, self.number_actions)
+        y = y.view(-1, len(targets), self.number_actions)
         # Get the maximum prediction for the next state from the target network
         max_target_net = y.max(-1)[0]
 
         # dim (batch_size, agents, number_actions)
-        network_prediction = self.q_network.forward(curr_state).view(
-            -1, self.agents, self.number_actions)
+        network_prediction = self.q_network.forward(curr_state, targets).view(
+            -1, len(targets), self.number_actions)
         isNotOver = (torch.ones(*terminal.shape) - terminal)
 
         # Bellman equation, discount_factor=gamma
-        batch_labels_tensor = rewards + isNotOver * \
+        batch_labels_tensor = rewards[:, targets] + isNotOver[:, targets] * \
             (discount_factor * max_target_net.detach())
 
         actions = torch.tensor(transitions[1], dtype=torch.long).unsqueeze(-1)
-        y_pred = torch.gather(network_prediction, -1, actions).squeeze()
+        y_pred = torch.gather(network_prediction, -1, actions[:, targets]).squeeze()
 
         return self.loss_func.forward(network_pred=network_prediction,
                                     bellman=batch_labels_tensor, pred=y_pred)
 
 
 class LossFunction(nn.Module):
-    def __init__(self, beta=0.01):
+    def __init__(self, beta=0.001):
         super(LossFunction, self).__init__()
         self.beta = beta
 
@@ -383,8 +430,9 @@ class LossFunction(nn.Module):
 
         dist_loss = torch.nn.SmoothL1Loss()(bellman.flatten(), pred.flatten())
         entropy_loss = -p.entropy().view(-1).sum()
-        # print("LOSS FUNCTION VALUES:")
-        # print(dist_loss)
-        # print(self.beta * entropy_loss)
-        return dist_loss + (self.beta * entropy_loss)
+
+        # print("Bellman Distance Loss: {}".format(dist_loss))
+        # print("Entropy: {}".format(entropy_loss))
+        loss = Variable(dist_loss + (self.beta * entropy_loss), requires_grad=True)
+        return loss
 

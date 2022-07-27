@@ -255,6 +255,7 @@ class MedicalPlayer(gym.Env):
     @staticmethod
     def calcDistance(points1, points2, spacing=(1, 1)):
         """ calculate the distance between two points in mm"""
+
         spacing = np.array(spacing)
         points1 = spacing * np.array(points1)
         points2 = spacing * np.array(points2)
@@ -363,6 +364,8 @@ class MedicalPlayer(gym.Env):
         for i in range(self.agents):
             self.current_episode_score[i].append(self.reward[i])
 
+        # Agents with a target
+        agents_training = np.array([])
         info = {}
         for i in range(self.agents):
             info[f"score_{i}"] = np.sum(self.current_episode_score[i])
@@ -374,8 +377,11 @@ class MedicalPlayer(gym.Env):
             # info[f"agent_zpos_{i}"] = self._location[i][2]
             info[f"landmark_xpos_{i}"] = self._target_loc[i][0]
             info[f"landmark_ypos_{i}"] = self._target_loc[i][1]
+            if not np.isnan(self._target_loc[i]).any():
+                agents_training = np.append(agents_training, i)
             # info[f"landmark_zpos_{i}"] = self._target_loc[i][2]
-        return self._current_state(), self.reward, self.terminal, info
+
+        return self._current_state(), self.reward, self.terminal, info, np.asarray(agents_training).astype(int)
 
     def move(self, act, q_values):
         ''' 0: up z+, 1: forward y+, 2: right x+
@@ -631,14 +637,15 @@ class MedicalPlayer(gym.Env):
         Calculate the new reward based on the decrease in euclidean distance to
         the target location
         """
-        # If image doesn't contain target
-        if np.isnan(np.asarray(self._target_loc)).any():
+        # if agent has no target in the current image, not updating its layers
+        if np.isnan(self._target_loc[agent]).any():
             return 0
 
         curr_dist = self.calcDistance(current_loc, self._target_loc[agent],
                                       self.spacing)
         next_dist = self.calcDistance(next_loc, self._target_loc[agent],
                                       self.spacing)
+
         return curr_dist - next_dist
 
     # TODO: return oscillate for each agent independently

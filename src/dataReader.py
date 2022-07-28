@@ -363,7 +363,12 @@ class PngImage(object):
         np_image = cv2.imread(filename, cv2.IMREAD_GRAYSCALE)
         # np_image = np_image.transpose(1, 0)
         np_image = cv2.transpose(np_image)
-        image_frame = sitk.GetImageFromArray(np_image)
+        try:
+            image_frame = sitk.GetImageFromArray(np_image)
+        except:
+            print("Problem with sitk get image from array")
+            print(image.name)
+
         image.data = np_image
         image.dims = np_image.shape  # (x,y)
         return image_frame, image

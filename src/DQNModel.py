@@ -86,7 +86,7 @@ class Network3D(nn.Module):
 
 class CommNet(nn.Module):
 
-    def __init__(self, agents, landmarks, frame_history, device, number_actions=4, xavier=True, attention=False):
+    def __init__(self, agents, frame_history, device, landmarks=None, number_actions=4, xavier=True, attention=False):
         super(CommNet, self).__init__()
 
         self.agents = agents
@@ -321,16 +321,16 @@ class DQN:
                 self.device)
         elif type == "CommNet":
             self.q_network = CommNet(
-                agents,
-                frame_history,
-                self.device,
-                number_actions,
+                agents=agents,
+                frame_history=frame_history,
+                device=self.device,
+                number_actions=number_actions,
                 attention=attention)  # .to(self.device)
             self.target_network = CommNet(
-                agents,
-                frame_history,
-                self.device,
-                number_actions,
+                agents=agents,
+                frame_history=frame_history,
+                device=self.device,
+                number_actions=number_actions,
                 attention=attention)  # .to(self.device)
         if torch.cuda.device_count() > 1:
             print("{} GPUs Available for Training".format(torch.cuda.device_count()))

@@ -86,14 +86,14 @@ class Network3D(nn.Module):
 
 class CommNet(nn.Module):
 
-    def __init__(self, agents, landmarks, frame_history, number_actions=4, xavier=True, attention=False):
+    def __init__(self, agents, landmarks, frame_history, device, number_actions=4, xavier=True, attention=False):
         super(CommNet, self).__init__()
 
         self.agents = agents
         self.num_actions = number_actions
         self.frame_history = frame_history
-        self.device = torch.device(
-            "cuda" if torch.cuda.is_available() else "cpu")
+        self.device = device
+            # torch.device("cuda" if torch.cuda.is_available() else "cpu")
         if number_actions == 6: #3D
             self.conv0 = nn.Conv3d(in_channels=frame_history, out_channels=32, kernel_size=(5, 5, 5),padding=1).to(self.device)
             self.maxpool0 = nn.MaxPool3d(kernel_size=(2, 2, 2)).to(self.device)
@@ -323,11 +323,13 @@ class DQN:
             self.q_network = CommNet(
                 agents,
                 frame_history,
+                self.device,
                 number_actions,
                 attention=attention)  # .to(self.device)
             self.target_network = CommNet(
                 agents,
                 frame_history,
+                self.device,
                 number_actions,
                 attention=attention)  # .to(self.device)
         if torch.cuda.device_count() > 1:

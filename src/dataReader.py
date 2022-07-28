@@ -8,7 +8,7 @@ import numpy as np
 import warnings
 import cv2
 from torchvision import transforms
-from efficientnet_pytorch import EfficientNet
+# from efficientnet_pytorch import EfficientNet
 # EfficientNet.get_image_size()
 
 # from numba import njit

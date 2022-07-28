@@ -284,10 +284,10 @@ class CommNet(nn.Module):
 
 
     def InitInputs(self, batch):
-        self.input2 = torch.zeros([batch, self.agents, 64*4*4])
-        self.input3 = torch.zeros([batch, self.agents, 256])
-        self.input4 = torch.zeros([batch, self.agents, 128])
-        self.output = torch.zeros([batch, self.agents, self.num_actions])
+        self.input2 = torch.zeros([batch, self.agents, 64*4*4]).to(self.device)
+        self.input3 = torch.zeros([batch, self.agents, 256]).to(self.device)
+        self.input4 = torch.zeros([batch, self.agents, 128]).to(self.device)
+        self.output = torch.zeros([batch, self.agents, self.num_actions]).to(self.device)
         return
 
 class DQN:

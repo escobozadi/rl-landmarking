@@ -306,7 +306,7 @@ class DQN:
         self.frame_history = frame_history
         self.logger = logger
         self.device = torch.device(
-            "cuda" if torch.cuda.is_available() else "cpu")
+            "cuda:0" if torch.cuda.is_available() else "cpu")
         self.logger.log(f"Using {self.device}")
         self.loss_func = LossFunction(beta=entropy_reg)
         # Create a Q-network, which predicts the q-value for a particular state

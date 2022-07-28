@@ -361,6 +361,9 @@ class PngImage(object):
             image.name), "unknown image format for %r" % image.name
 
         np_image = cv2.imread(filename, cv2.IMREAD_GRAYSCALE)
+        if np_image is None:
+            print("Empty Image")
+            print(image.name)
         # np_image = np_image.transpose(1, 0)
         np_image = cv2.transpose(np_image)
         try:

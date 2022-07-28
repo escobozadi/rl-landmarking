@@ -93,8 +93,13 @@ class CommNet(nn.Module):
         self.num_actions = number_actions
         self.frame_history = frame_history
         self.device = device
+
+        self.input2 = torch.zeros([1, self.agents, 64 * 4 * 4]).to(self.device)
+        self.input3 = torch.zeros([1, self.agents, 256]).to(self.device)
+        self.input4 = torch.zeros([1, self.agents, 128]).to(self.device)
+        self.output = torch.zeros([1, self.agents, self.num_actions]).to(self.device)
+
             # torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.InitInputs(None)
         if number_actions == 6: #3D
             self.conv0 = nn.Conv3d(in_channels=frame_history, out_channels=32, kernel_size=(5, 5, 5),padding=1).to(self.device)
             self.maxpool0 = nn.MaxPool3d(kernel_size=(2, 2, 2)).to(self.device)
@@ -279,13 +284,14 @@ class CommNet(nn.Module):
         return self.output[:, agents]
 
     def InitInputs(self, batch):
-        size = batch
-        if batch is None:
-            size = 1
-        self.input2 = torch.zeros([size, self.agents, 64*4*4]).to(self.device)
-        self.input3 = torch.zeros([size, self.agents, 256]).to(self.device)
-        self.input4 = torch.zeros([size, self.agents, 128]).to(self.device)
-        self.output = torch.zeros([size, self.agents, self.num_actions]).to(self.device)
+        # self.input2 = torch.zeros([batch, self.agents, 64*4*4]).to(self.device)
+        # self.input3 = torch.zeros([batch, self.agents, 256]).to(self.device)
+        # self.input4 = torch.zeros([batch, self.agents, 128]).to(self.device)
+        # self.output = torch.zeros([batch, self.agents, self.num_actions]).to(self.device)
+        self.input2 = torch.zeros([batch, self.agents, 64 * 4 * 4])
+        self.input3 = torch.zeros([batch, self.agents, 256])
+        self.input4 = torch.zeros([batch, self.agents, 128])
+        self.output = torch.zeros([batch, self.agents, self.num_actions])
         return
 
 class DQN:

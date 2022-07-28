@@ -7,12 +7,13 @@ import copy
 
 
 class CleanData(object):
-    def __init__(self, dir, landmarks_dir, land_dest=None):
+    def __init__(self, dir=None, landmarks_dir=None, land_dest=None, num_ds=3):
         self.images_dir = dir
+        self.ds = num_ds
         self.labels = landmarks_dir
         self.landmarks_dest = land_dest
-        self.images_files = [f for f in os.listdir(dir) if not f.startswith('.')]
-        self.landmark_files = [f for f in os.listdir(landmarks_dir) if not f.startswith('.')]
+        # self.images_files = [f for f in os.listdir(dir) if not f.startswith('.')]
+        # self.landmark_files = [f for f in os.listdir(landmarks_dir) if not f.startswith('.')]
 
     def ImageNorm(self, path, destination):
 
@@ -45,41 +46,74 @@ class CleanData(object):
 
         return
 
-    def ModelFilenames(self):
-        idx = np.arange(len(self.images_files))
-        portion = 0.1  # 80/10/10 -> train/val/test
+    def ModelFilenames(self, knee, elbow, ankle):
+        '''
+        Separate in equal parts the datasets into train/val/test
+        '''
+        knee_files = np.array([f[:-4] for f in os.listdir(knee) if not f.startswith('.')])
+        elbow_files = np.array([f[:-4] for f in os.listdir(elbow) if not f.startswith('.')])
+        ankle_files = np.array([f[:-4] for f in os.listdir(ankle) if not f.startswith('.')])
 
-        val = np.random.choice(idx, size=int(len(idx)*portion))
-        val = np.sort(val)
-        tst = np.random.choice(np.delete(idx, val), size=int(len(idx) * portion))
-        tst = np.sort(tst)
-        idx = np.delete(idx, np.append(tst, val))
+        train_files = np.array([])
+        val_files = np.array([])
+        test_files = np.array([])
 
-        # Image files
+        size = [len(knee_files), len(elbow_files), len(ankle_files)]
+        # 80/10/10 -> train/val/test
+        portion = 0.1
+        for i in range(self.ds):
+            print(i)
+            idx = np.arange(size[i])
+            val = np.random.choice(idx, size=int(len(idx) * portion)).astype(int)
+            tst = np.random.choice(np.delete(idx, val), size=int(len(idx) * portion)).astype(int)
+            idx = np.delete(idx, np.append(tst, val)).astype(int)
+            if i == 0:
+                train_files = np.append(train_files, knee_files[idx])
+                val_files = np.append(val_files, knee_files[val])
+                test_files = np.append(test_files, knee_files[tst])
+            elif i == 1:
+                train_files = np.append(train_files, elbow_files[idx])
+                val_files = np.append(val_files, elbow_files[val])
+                test_files = np.append(test_files, elbow_files[tst])
+
+            elif i == 2:
+                train_files = np.append(train_files, ankle_files[idx])
+                val_files = np.append(val_files, ankle_files[val])
+                test_files = np.append(test_files, ankle_files[tst])
+        # shuffle
+        np.random.shuffle(train_files)
+        np.random.shuffle(val_files)
+        np.random.shuffle(test_files)
+        print(test_files)
+
+        # TEST FILENAMES
         with open("src/data/filenames/images_test.txt", "w") as f:
-            for file in np.asarray(self.images_files)[[tst]]:
-                f.write("./data/images/" + file + "\n")
+            for file in test_files:
+                f.write("./data/images/" + file + ".png" + "\n")
 
-        with open("src/data/filenames/images_val.txt", "w") as f:
-            for file in np.asarray(self.images_files)[[val]]:
-                f.write("./data/images/" + file + "\n")
-
-        with open("src/data/filenames/images.txt", "w") as f:
-            for file in np.asarray(self.images_files)[[idx]]:
-                f.write("./data/images/" + file + "\n")
-
-        # Landmark files
         with open("src/data/filenames/landmarks_test.txt", "w") as f:
-            for file in np.asarray(self.landmark_files)[[tst]]:
-                f.write("./data/landmarks/" + file + "\n")
+            for file in test_files:
+                f.write("./data/landmarks/" + file + ".txt" + "\n")
+
+
+        # VAL FILENAMES
+        with open("src/data/filenames/images_val.txt", "w") as f:
+            for file in val_files:
+                f.write("./data/images/" + file + ".png" + "\n")
 
         with open("src/data/filenames/landmarks_val.txt", "w") as f:
-            for file in np.asarray(self.landmark_files)[[val]]:
-                f.write("./data/landmarks/" + file + "\n")
+            for file in val_files:
+                f.write("./data/landmarks/" + file + ".txt" + "\n")
+
+
+        # TRAIN FILENAMES
+        with open("src/data/filenames/images.txt", "w") as f:
+            for file in train_files:
+                f.write("./data/images/" + file + ".png" + "\n")
 
         with open("src/data/filenames/landmarks.txt", "w") as f:
-            for file in np.asarray(self.landmark_files)[[idx]]:
-                f.write("./data/landmarks/" + file + "\n")
+            for file in train_files:
+                f.write("./data/landmarks/" + file + ".txt" + "\n")
 
         return
 
@@ -493,6 +527,13 @@ if __name__ == '__main__':
     dir = "/Users/dianaescoboza/Documents/SUMMER22/Datasets/KneeDS/images/"
     knee_landmarks = "/Users/dianaescoboza/Documents/SUMMER22/Datasets/KneeDS/labels/"
     dest = "src/data/landmarks/"
+
+    knee_dir = "/Users/dianaescoboza/Documents/SUMMER22/Datasets/KneeDS/knee-images/"
+    ankle_dir = "/Users/dianaescoboza/Documents/SUMMER22/Datasets/AnkleDS/ankle-images/"
+    elbow_dir = "/Users/dianaescoboza/Documents/SUMMER22/Datasets/ElbowDS/elbow-images/"
+
+    data = CleanData()
+    data.ModelFilenames(knee_dir, elbow_dir, ankle_dir)
 
     # im_files = [f for f in os.listdir(dest) if not f.startswith('.')]
     # all_im = [f for f in os.listdir(dir) if not f.startswith('.')]

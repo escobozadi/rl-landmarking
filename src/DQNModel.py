@@ -183,8 +183,9 @@ class CommNet(nn.Module):
         (batch_size, agents, number_actions)
         # Agents for forward & back propagation [1,2,5]
         """
-        self.InitInputs(input.shape[0])
-        input1 = input.to(self.device) / 255.0
+        # self.InitInputs(input.shape[0])
+        # input1 = input.to(self.device) / 255.0
+        input1 = input / 255.0
 
         if agents_training is None:
             agents = np.arange(self.agents)
@@ -283,13 +284,6 @@ class CommNet(nn.Module):
         return self.output[:, agents]
 
 
-    def InitInputs(self, batch):
-        self.input2 = torch.zeros([batch, self.agents, 64*4*4]).to(self.device)
-        self.input3 = torch.zeros([batch, self.agents, 256]).to(self.device)
-        self.input4 = torch.zeros([batch, self.agents, 128]).to(self.device)
-        self.output = torch.zeros([batch, self.agents, self.num_actions]).to(self.device)
-        return
-
 class DQN:
     # The class initialisation function.
     def __init__(self, agents, frame_history, logger, number_actions=4, merge_layers=False,
@@ -379,6 +373,13 @@ class DQN:
         self.optimiser.step()
         return loss.item()
 
+    def InitInputs(self, batch):
+        self.input2 = torch.zeros([batch, self.agents, 64*4*4]).to(self.device)
+        self.input3 = torch.zeros([batch, self.agents, 256]).to(self.device)
+        self.input4 = torch.zeros([batch, self.agents, 128]).to(self.device)
+        self.output = torch.zeros([batch, self.agents, self.number_actions]).to(self.device)
+        return
+
     # Function to calculate the loss for a particular transition.
     def _calculate_loss(self, transitions, discount_factor, targets):
         '''
@@ -402,9 +403,9 @@ class DQN:
             rewards = rewards + torch.matmul(rewards, nn.Softmax(dim=0)(self.q_network.rew_att))
 
         # Forward only on the agents training
+        next_state = next_state.to(self.device)
+        self.InitInputs(next_state.shape[0])
         y = self.target_network.forward(next_state, targets)
-        # print("Agents training: {}".format(targets))
-        # dim (batch_size, agents, number_actions)
         y = y.view(-1, len(targets), self.number_actions)
         # Get the maximum prediction for the next state from the target network
         max_target_net = y.max(-1)[0]

@@ -15,10 +15,10 @@ class CleanData(object):
         # self.images_files = [f for f in os.listdir(dir) if not f.startswith('.')]
         # self.landmark_files = [f for f in os.listdir(landmarks_dir) if not f.startswith('.')]
 
-    def ImageNorm(self, path, destination):
+    def ImageNorm(self, path, destination, files):
 
         idx = 0
-        for im in self.images_files:
+        for im in files:
             image = cv2.imread(path + im, cv2.IMREAD_GRAYSCALE)
             if image is None:
                 print("Image is empty: {}, {}".format(idx, im))
@@ -524,16 +524,20 @@ def images_names(directory, destination, im_files):
 
 if __name__ == '__main__':
 
-    dir = "/Users/dianaescoboza/Documents/SUMMER22/Datasets/KneeDS/images/"
+    dir = "/Users/dianaescoboza/Documents/SUMMER22/Datasets/KneeDS/knee-images/"
     knee_landmarks = "/Users/dianaescoboza/Documents/SUMMER22/Datasets/KneeDS/labels/"
-    dest = "src/data/landmarks/"
+    dest = "src/data/images/"
 
     knee_dir = "/Users/dianaescoboza/Documents/SUMMER22/Datasets/KneeDS/knee-images/"
     ankle_dir = "/Users/dianaescoboza/Documents/SUMMER22/Datasets/AnkleDS/ankle-images/"
     elbow_dir = "/Users/dianaescoboza/Documents/SUMMER22/Datasets/ElbowDS/elbow-images/"
 
+    knee_images = [f for f in os.listdir(knee_dir) if not f.startswith('.')]
+    ankle_images = [f for f in os.listdir(ankle_dir) if not f.startswith('.')]
+    elbow_images = [f for f in os.listdir(elbow_dir) if not f.startswith('.')]
+
     data = CleanData()
-    data.ModelFilenames(knee_dir, elbow_dir, ankle_dir)
+    data.ImageNorm(elbow_dir, dest, elbow_images)
 
     # im_files = [f for f in os.listdir(dest) if not f.startswith('.')]
     # all_im = [f for f in os.listdir(dir) if not f.startswith('.')]

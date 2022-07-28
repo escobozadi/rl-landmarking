@@ -83,7 +83,7 @@ class Evaluator(object):
             greedy_steps = np.array(idx, dtype=np.int32).flatten()
             return greedy_steps, q_vals.data.numpy()
 
-        obs_stack = self.env.reset(fixed_spawn)
+        obs_stack, targets = self.env.reset(fixed_spawn)
         # Here obs have shape (agent, *image_size, frame_history)
         sum_r = np.zeros((self.agents))
         isOver = [False] * self.agents
@@ -91,7 +91,7 @@ class Evaluator(object):
         steps = 0
         while steps < self.max_steps and not np.all(isOver):
             acts, q_values = predict(obs_stack)
-            obs_stack, r, isOver, info = self.env.step(acts, q_values, isOver)
+            obs_stack, r, isOver, info, agents_wtarget = self.env.step(acts, q_values, isOver)
             steps += 1
             if start_dists is None:
                 start_dists = [

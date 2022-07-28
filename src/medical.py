@@ -144,6 +144,8 @@ class MedicalPlayer(gym.Env):
     def reset(self, fixed_spawn=None):
         # with _ALE_LOCK:
         self._restart_episode(fixed_spawn)
+        if self.task == "eval":
+            return self._current_state(), self._target_loc
         return self._current_state()
 
     def _restart_episode(self, fixed_spawn=None):
@@ -918,21 +920,21 @@ class FrameStack(gym.Wrapper):
 
     def reset(self, fixed_spawn=None):
         """Clear buffer and re-fill by duplicating the first observation."""
-        ob = self.env.reset(fixed_spawn)
+        ob, targets = self.env.reset(fixed_spawn)
         for _ in range(self.k - 1):
             self.frames.append(np.zeros_like(ob))
         self.frames.append(ob)
-        return self._observation()
+        return self._observation(), targets
 
     def step(self, acts, q_values, isOver):
         for i in range(self.agents):
             if isOver[i]:
                 acts[i] = 15
-        current_st, reward, terminal, info = self.env.step(
+        current_st, reward, terminal, info, agents_wtarget = self.env.step(
             acts, q_values, isOver)
         current_st = tuple(current_st)
         self.frames.append(current_st)
-        return self._observation(), reward, terminal, info
+        return self._observation(), reward, terminal, info, agents_wtarget
 
     def _observation(self):
         assert len(self.frames) == self.k

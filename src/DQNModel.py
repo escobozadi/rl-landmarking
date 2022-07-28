@@ -185,8 +185,8 @@ class CommNet(nn.Module):
         # Agents for forward & back propagation [1,2,5]
         """
         self.InitInputs(input.shape[0])
-        # input1 = input.to(self.device) / 255.0
-        input1 = input / 255.0
+        input1 = input.to(self.device) / 255.0
+        # input1 = input / 255.0
 
         if agents_training is None:
             agents = np.arange(self.agents)
@@ -397,7 +397,7 @@ class DQN:
             rewards = rewards + torch.matmul(rewards, nn.Softmax(dim=0)(self.q_network.rew_att))
 
         # Forward only on the agents training
-        next_state = next_state.to(self.device)
+        # next_state = next_state.to(self.device)
         y = self.target_network.forward(next_state, targets)
         y = y.view(-1, len(targets), self.number_actions)
         # Get the maximum prediction for the next state from the target network

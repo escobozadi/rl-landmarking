@@ -301,6 +301,7 @@ class DQN:
         else:
             self.agents = agents
 
+
         self.number_actions = number_actions
         self.frame_history = frame_history
         self.logger = logger
@@ -323,14 +324,19 @@ class DQN:
                 agents,
                 frame_history,
                 number_actions,
-                attention=attention).to(
-                self.device)
+                attention=attention)  # .to(self.device)
             self.target_network = CommNet(
                 agents,
                 frame_history,
                 number_actions,
-                attention=attention).to(
-                self.device)
+                attention=attention)  # .to(self.device)
+        if torch.cuda.device_count() > 1:
+            print("{} GPUs Available for Training".format(torch.cuda.device_count()))
+            self.q_network = nn.DataParallel(self.q_network)
+            self.target_network = nn.DataParallel(self.target_network)
+        self.q_network.to(self.device)
+        self.target_network.to(self.device)
+
         if collective_rewards == "attention":
             self.q_network.rew_att = nn.Parameter(torch.randn(agents, agents))
             self.target_network.rew_att = nn.Parameter(torch.randn(agents, agents))

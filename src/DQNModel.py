@@ -94,6 +94,7 @@ class CommNet(nn.Module):
         self.frame_history = frame_history
         self.device = device
             # torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.InitInputs(None)
         if number_actions == 6: #3D
             self.conv0 = nn.Conv3d(in_channels=frame_history, out_channels=32, kernel_size=(5, 5, 5),padding=1).to(self.device)
             self.maxpool0 = nn.MaxPool3d(kernel_size=(2, 2, 2)).to(self.device)
@@ -183,7 +184,7 @@ class CommNet(nn.Module):
         (batch_size, agents, number_actions)
         # Agents for forward & back propagation [1,2,5]
         """
-        # self.InitInputs(input.shape[0])
+        self.InitInputs(input.shape[0])
         # input1 = input.to(self.device) / 255.0
         input1 = input / 255.0
 
@@ -227,7 +228,6 @@ class CommNet(nn.Module):
         else:
             # if len(agents) > 1:
             comm = torch.mean(self.input2, dim=1)  # (64,1,512)
-            # comm = torch.mean(input2, axis=1)
             comm = comm.unsqueeze(0).repeat(self.agents, *[1]*len(comm.shape))  # (agents, 64,1,512)
             # else:
             #     comm = torch.as_tensor(input2).repeat(self.agents, *[1]*len(input2.shape))
@@ -239,7 +239,6 @@ class CommNet(nn.Module):
         for i in agents:    # [1,3]
             x = self.input2[:, i]
             x = self.fc1[i](torch.cat((x, comm[i]), dim=-1))
-            # x = self.fc1[i](torch.cat((x, comm[i]), axis=-1))
             self.input3[:, i] = self.prelu4[i](x)
             # input3.append(self.prelu4[i](x))
         # input3 = torch.stack(input3, dim=1)
@@ -249,7 +248,6 @@ class CommNet(nn.Module):
                               for i in range(self.agents)])
         else:
             comm = torch.mean(self.input3, dim=1)
-            # comm = torch.mean(input3, axis=1)
             comm = comm.unsqueeze(0).repeat(self.agents, *[1]*len(comm.shape))
 
         # input4 = []
@@ -257,7 +255,6 @@ class CommNet(nn.Module):
         for i in agents:
             x = self.input3[:, i]
             x = self.fc2[i](torch.cat((x, comm[i]), dim=-1))
-            # x = self.fc2[i](torch.cat((x, comm[i]), axis=-1))
             self.input4[:, i] = self.prelu5[i](x)
             # input4.append(self.prelu5[i](x))
         # input4 = torch.stack(input4, dim=1)
@@ -267,7 +264,6 @@ class CommNet(nn.Module):
                               for i in range(self.agents)])
         else:
             comm = torch.mean(self.input4, dim=1)
-            # comm = torch.mean(input4, axis=1)
             comm = comm.unsqueeze(0).repeat(self.agents, *[1]*len(comm.shape))
         
         # output = []
@@ -275,7 +271,6 @@ class CommNet(nn.Module):
         for i in agents:
             x = self.input4[:, i]
             x = self.fc3[i](torch.cat((x, comm[i]), dim=-1))
-            # x = self.fc3[i](torch.cat((x, comm[i]), axis=-1))
             self.output[:, i] = x
             # output.append(x)
         # output = torch.stack(output, dim=1)
@@ -283,6 +278,15 @@ class CommNet(nn.Module):
         self.output = self.output.cpu()
         return self.output[:, agents]
 
+    def InitInputs(self, batch):
+        size = batch
+        if batch is None:
+            size = 1
+        self.input2 = torch.zeros([size, self.agents, 64*4*4]).to(self.device)
+        self.input3 = torch.zeros([size, self.agents, 256]).to(self.device)
+        self.input4 = torch.zeros([size, self.agents, 128]).to(self.device)
+        self.output = torch.zeros([size, self.agents, self.num_actions]).to(self.device)
+        return
 
 class DQN:
     # The class initialisation function.
@@ -373,13 +377,6 @@ class DQN:
         self.optimiser.step()
         return loss.item()
 
-    def InitInputs(self, batch):
-        self.input2 = torch.zeros([batch, self.agents, 64*4*4]).to(self.device)
-        self.input3 = torch.zeros([batch, self.agents, 256]).to(self.device)
-        self.input4 = torch.zeros([batch, self.agents, 128]).to(self.device)
-        self.output = torch.zeros([batch, self.agents, self.number_actions]).to(self.device)
-        return
-
     # Function to calculate the loss for a particular transition.
     def _calculate_loss(self, transitions, discount_factor, targets):
         '''
@@ -404,7 +401,6 @@ class DQN:
 
         # Forward only on the agents training
         next_state = next_state.to(self.device)
-        self.InitInputs(next_state.shape[0])
         y = self.target_network.forward(next_state, targets)
         y = y.view(-1, len(targets), self.number_actions)
         # Get the maximum prediction for the next state from the target network

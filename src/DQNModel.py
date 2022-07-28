@@ -94,11 +94,6 @@ class CommNet(nn.Module):
         self.frame_history = frame_history
         self.device = device
 
-        self.input2 = torch.zeros([1, self.agents, 64 * 4 * 4]).to(self.device)
-        self.input3 = torch.zeros([1, self.agents, 256]).to(self.device)
-        self.input4 = torch.zeros([1, self.agents, 128]).to(self.device)
-        self.output = torch.zeros([1, self.agents, self.num_actions]).to(self.device)
-
             # torch.device("cuda" if torch.cuda.is_available() else "cpu")
         if number_actions == 6: #3D
             self.conv0 = nn.Conv3d(in_channels=frame_history, out_channels=32, kernel_size=(5, 5, 5),padding=1).to(self.device)
@@ -284,14 +279,10 @@ class CommNet(nn.Module):
         return self.output[:, agents]
 
     def InitInputs(self, batch):
-        # self.input2 = torch.zeros([batch, self.agents, 64*4*4]).to(self.device)
-        # self.input3 = torch.zeros([batch, self.agents, 256]).to(self.device)
-        # self.input4 = torch.zeros([batch, self.agents, 128]).to(self.device)
-        # self.output = torch.zeros([batch, self.agents, self.num_actions]).to(self.device)
-        self.input2 = torch.zeros([batch, self.agents, 64 * 4 * 4])
-        self.input3 = torch.zeros([batch, self.agents, 256])
-        self.input4 = torch.zeros([batch, self.agents, 128])
-        self.output = torch.zeros([batch, self.agents, self.num_actions])
+        self.input2 = torch.zeros([batch, self.agents, 64*4*4]).to(self.device)
+        self.input3 = torch.zeros([batch, self.agents, 256]).to(self.device)
+        self.input4 = torch.zeros([batch, self.agents, 128]).to(self.device)
+        self.output = torch.zeros([batch, self.agents, self.num_actions]).to(self.device)
         return
 
 class DQN:
@@ -336,10 +327,10 @@ class DQN:
                 device=self.device,
                 number_actions=number_actions,
                 attention=attention)  # .to(self.device)
-        if torch.cuda.device_count() > 1:
-            print("{} GPUs Available for Training".format(torch.cuda.device_count()))
-            self.q_network = nn.DataParallel(self.q_network)
-            self.target_network = nn.DataParallel(self.target_network)
+        # if torch.cuda.device_count() > 1:
+        #     print("{} GPUs Available for Training".format(torch.cuda.device_count()))
+        #     self.q_network = nn.DataParallel(self.q_network)
+        #     self.target_network = nn.DataParallel(self.target_network)
         self.q_network.to(self.device)
         self.target_network.to(self.device)
 

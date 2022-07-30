@@ -430,8 +430,6 @@ class LossFunction(nn.Module):
         dist_loss = torch.nn.SmoothL1Loss()(bellman.flatten(), pred.flatten())
         entropy_loss = -p.entropy().view(-1).sum()
 
-        # print("Bellman Distance Loss: {}".format(dist_loss))
-        # print("Entropy: {}".format(entropy_loss))
         loss = Variable(dist_loss + (self.beta * entropy_loss), requires_grad=True)
         return loss
 

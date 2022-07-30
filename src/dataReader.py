@@ -23,7 +23,7 @@ __all__ = [
     'NiftiImage']
 
 # @njit(nogil=True, fastmath=True)
-def getLandmarksFromTXTFile(file, split=' '):
+def getLandmarksFromTXTFile(file, agents, split=' '):
     """
     Extract each landmark point line by line from a text file, and return vector containing all landmarks.
     0  femur
@@ -35,7 +35,7 @@ def getLandmarksFromTXTFile(file, split=' '):
     6  triceps tendon insertion
     7  humerus
     """
-    landmarks = np.zeros((8, 2))
+    landmarks = np.zeros((agents, 2))
     landmarks[:] = np.nan
 
     with open(file) as t:
@@ -118,7 +118,7 @@ class filesListJointUSLandmark(object): #2D joint US images
                 if self.returnLandmarks:
                     # transform landmarks to image space if they are in physical space
                     landmark_file = self.landmark_files[idx]
-                    landmark = getLandmarksFromTXTFile(landmark_file)
+                    landmark = getLandmarksFromTXTFile(landmark_file, self.agents)
                     if np.isnan(landmark[landmark_ids]).all():
                         continue
                     # scaling coor to the size of the image

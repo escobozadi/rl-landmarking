@@ -286,6 +286,7 @@ class ModelLog(object):
             lines = [x.split() for x in list(f) if x]
 
         labels = " ".join(lines[4]).replace("'", "\"")
+        print(labels)
         labels = json.loads(labels)
 
         dis_idx = []
@@ -301,9 +302,12 @@ class ModelLog(object):
         file_min = {}
         file_max = {}
         for line in lines[5:-2]:
-            l = " ".join(line).replace("'", "\"")
+            l = " ".join(line).replace("'", "\"").replace("nan", "\"nan\"")
             l = json.loads(l)
             for i in range(agents):
+                if l[dis_idx[i]] == "nan":
+                    continue
+
                 if l[dis_idx[i]] < min_dist[i]:
                     min_dist[i] = l[dis_idx[i]]
                     fidx = file_idx[i]
@@ -323,7 +327,9 @@ class ModelLog(object):
 
     def image_show(self, min_dic, max_dic, dmin, dmax):
         path = "src/data/images/"
-        save = "src/tests/test-results/"
+        save = "src/tests/test-results/all-agents-first-run/"
+        landmarks = ["Femur", "Quadriceps Tendon", "Patella", "Tibia/Fibula", "Talus",
+                     "Ulna", "Triceps Tendon Insertion", "Humerus"]
         size = (450, 450)
 
         for i in range(len(dmin)):
@@ -359,7 +365,7 @@ class ModelLog(object):
                         thickness=1, fontScale=0.4, color=(0, 255, 0), fontFace=cv2.FONT_HERSHEY_SIMPLEX)
             himage = np.hstack((im1, im2))
 
-            cv2.imwrite(save + "Agent{}-Tendon".format(i) + ".png", himage)
+            cv2.imwrite(save + "Agent{}-{}".format(i, landmarks[i]) + ".png", himage)
         # cv2.imshow("Test: Min/Max Distance Image", himage)
         # cv2.waitKey(0)
 
@@ -522,22 +528,98 @@ def images_names(directory, destination, im_files):
     return
 
 
+class FilesOrdering(object):
+    def __init__(self, files):
+        self.train_files = [f[1:-1] for f in open(files + "images.txt", "r")]
+        self.val_files = [f[1:-1] for f in open(files + "images_val.txt", "r")]
+        self.test_files = [f[1:-1] for f in open(files + "images_test.txt", "r")]
+        self.labels_train = "landmarks.txt"
+        self.labels_val = "landmarks_val.txt"
+        self.labels_est = "landmarks_test.txt"
+        self.train_dir = "./src/data/train/"
+        self.val_dir = "./src/data/val/"
+        self.test_dir = "./src/data/test/"
+        self.files = files
+        return
+
+    def orderImages(self):
+
+        for file in self.train_files:
+            image = cv2.imread("./src" + file)
+            name = file[13:]
+            cv2.imwrite(self.train_dir + name, image)
+
+        for file in self.val_files:
+            image = cv2.imread("./src" + file)
+            name = file[13:]
+            cv2.imwrite(self.val_dir + name, image)
+
+        for file in self.test_files:
+            image = cv2.imread("./src" + file)
+            name = file[13:]
+            cv2.imwrite(self.test_dir + name, image)
+
+        return
+
+
+    def updateDir(self):
+        train = "./data/train/"
+        val = "./data/val/"
+        test = "./data/test/"
+
+        # TEST
+        with open(self.files + "images_test2.txt", "w") as image, open(self.files + "landmarks_test2.txt", "w") as label:
+            for file in self.test_files:
+                image.write(test + file[13:])
+                image.write("\n")
+                label.write("./data/landmarks/" + file[13:-4] + ".txt")
+                label.write("\n")
+
+        # VAL
+        with open(self.files + "images_val2.txt", "w") as image, open(self.files + "landmarks_val2.txt", "w") as label:
+            for file in self.val_files:
+                image.write(val + file[13:])
+                image.write("\n")
+                label.write("./data/landmarks/" + file[13:-4] + ".txt")
+                label.write("\n")
+
+        # TRAIN
+        with open(self.files + "images2.txt", "w") as image, open(self.files + "landmarks2.txt", "w") as label:
+            for file in self.train_files:
+                image.write(train + file[13:])
+                image.write("\n")
+                label.write("./data/landmarks/" + file[13:-4] + ".txt")
+                label.write("\n")
+
+        image.close()
+        label.close()
+
+        return
+
+
 if __name__ == '__main__':
 
     dir = "/Users/dianaescoboza/Documents/SUMMER22/Datasets/KneeDS/knee-images/"
     knee_landmarks = "/Users/dianaescoboza/Documents/SUMMER22/Datasets/KneeDS/labels/"
-    dest = "src/data/images/"
+    files = "src/data/filenames/"
 
-    knee_dir = "/Users/dianaescoboza/Documents/SUMMER22/Datasets/KneeDS/knee-images/"
-    ankle_dir = "/Users/dianaescoboza/Documents/SUMMER22/Datasets/AnkleDS/ankle-images/"
-    elbow_dir = "/Users/dianaescoboza/Documents/SUMMER22/Datasets/ElbowDS/elbow-images/"
+    # order = FilesOrdering(files)
+    # order.updateDir()
 
-    knee_images = [f for f in os.listdir(knee_dir) if not f.startswith('.')]
-    ankle_images = [f for f in os.listdir(ankle_dir) if not f.startswith('.')]
-    elbow_images = [f for f in os.listdir(elbow_dir) if not f.startswith('.')]
 
-    data = CleanData()
-    data.ImageNorm(elbow_dir, dest, elbow_images)
+
+
+    # knee_dir = "/Users/dianaescoboza/Documents/SUMMER22/Datasets/KneeDS/knee-images/"
+    # ankle_dir = "/Users/dianaescoboza/Documents/SUMMER22/Datasets/AnkleDS/ankle-images/"
+    # elbow_dir = "/Users/dianaescoboza/Documents/SUMMER22/Datasets/ElbowDS/elbow-images/"
+    #
+    # knee_images = [f for f in os.listdir(knee_dir) if not f.startswith('.')]
+    # ankle_images = [f for f in os.listdir(ankle_dir) if not f.startswith('.')]
+    # elbow_images = [f for f in os.listdir(elbow_dir) if not f.startswith('.')]
+
+
+    # data = CleanData()
+    # data.ImageNorm(elbow_dir, dest, elbow_images)
 
     # im_files = [f for f in os.listdir(dest) if not f.startswith('.')]
     # all_im = [f for f in os.listdir(dir) if not f.startswith('.')]
@@ -597,5 +679,8 @@ if __name__ == '__main__':
     #         "Train Mean Distance (new loss)", "Validation Mean Distance (new loss)", save_dir, agents=1)
     # plot_loss("src/tests/test-results/info-epoch.json")
 
-    # dic_min, dic_max, min_dist, max_dist = read_output("src/runs/Jul20_13-17-34_MacBook-Pro.local/logs.txt")
-    # image_show(dic_min, dic_max, min_dist, max_dist)
+    # results = ModelLog()
+    # dic_min, dic_max, min_dist, max_dist = results.read_output(
+    #     "src/runs/Jul29_10-49-21_MacBook-Pro.local/logs.txt", agents=8)
+    # results.image_show(dic_min, dic_max, min_dist, max_dist)
+

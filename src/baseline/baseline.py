@@ -36,9 +36,9 @@ class BaselineModel(nn.Module):
             in_channels=40,
             out_channels=32,
             kernel_size=(5, 5),
-            padding=1).to(self.device)  # (32,61-2,59)
+            padding=1).to(self.device)
         self.maxpool0 = nn.MaxPool2d(
-            kernel_size=(2, 2)).to(self.device)  # (32,(59-2)/2 +1,29)
+            kernel_size=(2, 2)).to(self.device)
 
         self.conv1 = nn.Conv2d(
             in_channels=32,
@@ -46,7 +46,7 @@ class BaselineModel(nn.Module):
             kernel_size=(5, 5),
             padding=1).to(self.device)
         self.maxpool1 = nn.MaxPool2d(
-            kernel_size=(4, 4)).to(self.device)  # (32, 23, 34)
+            kernel_size=(4, 4)).to(self.device)
 
         self.prelu0 = nn.PReLU().to(self.device)
         self.prelu1 = nn.PReLU().to(self.device)
@@ -56,46 +56,64 @@ class BaselineModel(nn.Module):
                 in_features=32*11*17,
                 out_features=256).to(
                 self.device) for _ in range(
-                self.targets)])
+                self.targets + 1)])
         self.prelu2 = nn.ModuleList(
-            [nn.PReLU().to(self.device) for _ in range(self.targets)])
+            [nn.PReLU().to(self.device) for _ in range(self.targets + 1)])
 
         self.fc2 = nn.ModuleList(
             [nn.Linear(
                 in_features=256,
                 out_features=128).to(
                 self.device) for _ in range(
-                self.targets)])
+                self.targets + 1)])
         self.prelu3 = nn.ModuleList(
-            [nn.PReLU().to(self.device) for _ in range(self.targets)])
+            [nn.PReLU().to(self.device) for _ in range(self.targets + 1)])
 
+        # Predict box center(x,y), height, width
         self.fc3 = nn.ModuleList(
             [nn.Linear(
                 in_features=128,
-                out_features=targets).to(
+                out_features=4).to(
                 self.device) for _ in range(
                 self.targets)])
+        self.sigmoid = nn.ModuleList(
+            [nn.Sigmoid().to(self.device) for _ in range(self.targets + 1)])
+
+        self.fc = nn.Linear(in_features=128, out_features=targets).to(self.device)
+        # self.softmax = nn.Softmax()
 
         return
 
     def forward(self, input):
-        output = self.backbone.forward(input)
-        output = self.conv0(output)
-        output = self.prelu0(output)
-        output = self.maxpool0(output)
-        output = self.conv1(output)
-        output = self.prelu1(output)
-        output = self.maxpool1(output)
-        output = output.view(-1, 32*11*17)
-        # for i in range(self.targets):
-        #     output = self.fc1(output)
-        output = self.fc1[0](output)
-        output = self.prelu2[0](output)
-        output = self.fc2[0](output)
-        output = self.prelu3[0](output)
-        output = self.fc3[0](output)
+        x = self.backbone.forward(input)
+        x = self.conv0(x)
+        x = self.prelu0(x)
+        x = self.maxpool0(x)
+        x = self.conv1(x)
+        x = self.prelu1(x)
+        x = self.maxpool1(x)
+        conv_out = x.view(-1, 32*11*17)
 
-        return output
+        output1 = []
+        for i in range(self.targets + 1):
+            x = self.fc1[i](conv_out)
+            output1.append(self.prelu2[i](x))
+        output1 = torch.stack(output1, dim=1)
+
+        output2 = []
+        for i in range(self.targets + 1):
+            x = self.fc2[i](output1[:, i])
+            output2.append(self.prelu3[i](x))
+        output2 = torch.stack(output2, dim=1)
+
+        output3 = []
+        for i in range(self.targets):
+            x = self.fc3[i](output2[:, i])
+            output3.append(self.sigmoid[i](x))
+        output3 = torch.stack(output3, dim=1)
+        classification = self.sigmoid[-1](self.fc(output2[:, -1]))
+
+        return output3, classification
 
 
 if __name__ == '__main__':
@@ -114,8 +132,13 @@ if __name__ == '__main__':
     image = image.transpose(2, 0, 1)
     image = torch.from_numpy(image).float() / 255
     print("Original image size: {}".format(image.shape))
-    out = model.forward(image.unsqueeze(0))
+    out, c = model.forward(image.unsqueeze(0))
+    print("Landmarks location: ")
     print(out.shape)
+    print(out)
+    print("Landmarks: ")
+    print(c.shape)
+    print(c)
 
     # cv2.circle(image, (x, y), radius=5, color=255, thickness=-1)
     # cv2.imshow("image", image)

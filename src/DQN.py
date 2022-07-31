@@ -9,6 +9,7 @@ from logger import Logger
 from trainer import Trainer
 from DQNModel import DQN
 from medical import MedicalPlayer, FrameStack
+from baseline.base_trainer import DetecTrainer
 import argparse
 import os
 import torch
@@ -59,6 +60,10 @@ def get_player(directory=None, files_list=None, landmark_ids=None, viz=False,
     return env
 
 def get_args(parser):
+    parser.add_argument(
+        '--model',
+        help='''model to train or evaluate"''',
+        choices=['rl', 'baseline'], default='rl')
     parser.add_argument(
         '--load',
         help='Path to the model to load')
@@ -290,6 +295,9 @@ if __name__ == '__main__':
 
     args = get_args(parser)
 
-    main(args)
+    if args.model == 'rl':
+        main(args)
+    elif args.model == 'baseline':
+        train = DetecTrainer(args.batch_size)
 
 

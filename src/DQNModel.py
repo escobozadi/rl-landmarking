@@ -398,10 +398,10 @@ class DQN:
 
         # Forward only on the agents training
         # next_state = next_state.to(self.device)
-        print(targets)
+        # print(targets)
         y = self.target_network.forward(next_state, targets)
         y = y.view(-1, len(targets), self.number_actions)
-        print(y)
+        # print(y)
         # Get the maximum prediction for the next state from the target network
         max_target_net = y.max(-1)[0]
 

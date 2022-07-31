@@ -86,10 +86,16 @@ class Network3D(nn.Module):
 
 class CommNet(nn.Module):
 
-    def __init__(self, agents, frame_history, device, landmarks=None, number_actions=4, xavier=True, attention=False):
+    def __init__(self, agents, frame_history, device, landmarks=None,
+                 number_actions=4, xavier=True, attention=False):
         super(CommNet, self).__init__()
 
-        self.agents = agents
+        self.agents = agents    # number of landmarks
+        if landmarks is None:
+            # [0 1 2 3 4 5 6 7]
+            self.agents_targets = np.arange(self.agents)
+        else:
+            self.agents_targets = landmarks
         self.num_actions = number_actions
         self.frame_history = frame_history
         self.device = device
@@ -188,15 +194,17 @@ class CommNet(nn.Module):
         input1 = input.to(self.device) / 255.0
         # input1 = input / 255.0
 
-        if agents_training is None:
-            agents = np.arange(self.agents)
+        if agents_training is None:     # all agents training/val
+            agents = np.arange(len(self.agents_targets))
         else:
             agents = agents_training
+
+        # print("Agents Training idx: {}".format())
 
         # Shared layers
         # input2 = []
         # for i in range(self.agents):
-        for i in agents:
+        for i in agents:  # id of agents with a target to train with [2, 6, 7]
             x = input1[:, i]    # (64,1,4,61,61)
             x = self.conv0(x)
             # x = self.conv0(x.float())   # (64,1,32,59,59)
@@ -226,20 +234,16 @@ class CommNet(nn.Module):
             comm = torch.cat([torch.sum((self.input2.transpose(1, 2) * nn.Softmax(dim=0)(self.comm_att1[i])), dim=2).unsqueeze(0)
                               for i in range(self.agents)])
         else:
-            # if len(agents) > 1:
             comm = torch.mean(self.input2[:, agents], dim=1)  # (64,1,512)
-            comm = comm.unsqueeze(0).repeat(self.agents, *[1]*len(comm.shape))  # (agents, 64,1,512)
-            # else:
-            #     comm = torch.as_tensor(input2).repeat(self.agents, *[1]*len(input2.shape))
-            #     comm = comm.reshape([comm.shape[1], comm.shape[0], -1])
-            #     print("Communication shape: {}".format(comm.shape))
+            comm = comm.unsqueeze(0).repeat(len(self.agents_targets), *[1]*len(comm.shape))  # (agents, 64,1,512)
 
         # input3 = []
         #for i in range(self.agents):
         for i in agents:    # [1,3]
+            target_id = self.agents_targets[i]
             x = self.input2[:, i]
-            x = self.fc1[i](torch.cat((x, comm[i]), dim=-1))
-            self.input3[:, i] = self.prelu4[i](x)
+            x = self.fc1[target_id](torch.cat((x, comm[i]), dim=-1))
+            self.input3[:, i] = self.prelu4[target_id](x)
             # input3.append(self.prelu4[i](x))
         # input3 = torch.stack(input3, dim=1)
 
@@ -248,14 +252,15 @@ class CommNet(nn.Module):
                               for i in range(self.agents)])
         else:
             comm = torch.mean(self.input3[:, agents], dim=1)
-            comm = comm.unsqueeze(0).repeat(self.agents, *[1]*len(comm.shape))
+            comm = comm.unsqueeze(0).repeat(len(self.agents_targets), *[1]*len(comm.shape))
 
         # input4 = []
         # for i in range(self.agents):
         for i in agents:
+            target_id = self.agents_targets[i]
             x = self.input3[:, i]
-            x = self.fc2[i](torch.cat((x, comm[i]), dim=-1))
-            self.input4[:, i] = self.prelu5[i](x)
+            x = self.fc2[target_id](torch.cat((x, comm[i]), dim=-1))
+            self.input4[:, i] = self.prelu5[target_id](x)
             # input4.append(self.prelu5[i](x))
         # input4 = torch.stack(input4, dim=1)
 
@@ -264,13 +269,14 @@ class CommNet(nn.Module):
                               for i in range(self.agents)])
         else:
             comm = torch.mean(self.input4[:, agents], dim=1)
-            comm = comm.unsqueeze(0).repeat(self.agents, *[1]*len(comm.shape))
+            comm = comm.unsqueeze(0).repeat(len(self.agents_targets), *[1]*len(comm.shape))
         
         # output = []
         # for i in range(self.agents):
         for i in agents:
+            target_id = self.agents_targets[i]
             x = self.input4[:, i]
-            x = self.fc3[i](torch.cat((x, comm[i]), dim=-1))
+            x = self.fc3[target_id](torch.cat((x, comm[i]), dim=-1))
             self.output[:, i] = x
             # output.append(x)
         # output = torch.stack(output, dim=1)
@@ -279,10 +285,10 @@ class CommNet(nn.Module):
         return self.output[:, agents]
 
     def InitInputs(self, batch):
-        self.input2 = torch.zeros([batch, self.agents, 64*4*4]).to(self.device)
-        self.input3 = torch.zeros([batch, self.agents, 256]).to(self.device)
-        self.input4 = torch.zeros([batch, self.agents, 128]).to(self.device)
-        self.output = torch.zeros([batch, self.agents, self.num_actions]).to(self.device)
+        self.input2 = torch.zeros([batch, len(self.agents_targets), 64*4*4]).to(self.device)
+        self.input3 = torch.zeros([batch, len(self.agents_targets), 256]).to(self.device)
+        self.input4 = torch.zeros([batch, len(self.agents_targets), 128]).to(self.device)
+        self.output = torch.zeros([batch, len(self.agents_targets), self.num_actions]).to(self.device)
         return
 
 class DQN:
@@ -291,11 +297,11 @@ class DQN:
             type="Network3d", collective_rewards=False, attention=False,
             lr=1e-3, scheduler_gamma=0.9, scheduler_step_size=100, ids=None, entropy_reg=0.001):
 
+        # ids: [0 0 1 1 2 3 4 5 6 7 8] agents with their respective label target
         if merge_layers:
             self.agents = len(np.unique(np.asarray(ids)))  # number of unique target agents
         else:
             self.agents = agents
-
 
         self.number_actions = number_actions
         self.frame_history = frame_history
@@ -316,13 +322,13 @@ class DQN:
                 self.device)
         elif type == "CommNet":
             self.q_network = CommNet(
-                agents=self.agents,
+                agents=self.agents, landmarks=ids,
                 frame_history=frame_history,
                 device=self.device,
                 number_actions=number_actions,
                 attention=attention)  # .to(self.device)
             self.target_network = CommNet(
-                agents=agents,
+                agents=self.agents, landmarks=ids,
                 frame_history=frame_history,
                 device=self.device,
                 number_actions=number_actions,
@@ -398,10 +404,9 @@ class DQN:
 
         # Forward only on the agents training
         # next_state = next_state.to(self.device)
-        # print(targets)
         y = self.target_network.forward(next_state, targets)
         y = y.view(-1, len(targets), self.number_actions)
-        # print(y)
+
         # Get the maximum prediction for the next state from the target network
         max_target_net = y.max(-1)[0]
 

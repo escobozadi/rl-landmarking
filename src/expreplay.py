@@ -102,6 +102,7 @@ class ReplayMemory(object):
         return states_padded, actions, rewards, next_states, isOver
 
     def sample(self, batch_size):
+        # TODO: SAMPLE ONLY HISTORY WHERE AGENT HAD A TARGET TO TRAIN ON
         idxes = [np.random.randint(0, len(self) - 1)
                  for _ in range(batch_size)]
         states = []

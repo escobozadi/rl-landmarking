@@ -14,6 +14,12 @@ class DetecTrainer(object):
         self.max_epochs = args.max_episodes
         self.model.train(True)
         self.data = DataLoader(args.landmarks)
+        # # if torch.cuda.device_count() > 1:
+        # #     print("{} GPUs Available for Training".format(torch.cuda.device_count()))
+        # #     self.q_network = nn.DataParallel(self.q_network)
+        # #     self.target_network = nn.DataParallel(self.target_network)
+        # self.q_network.to(self.device)
+        # self.target_network.to(self.device)
 
         return
 

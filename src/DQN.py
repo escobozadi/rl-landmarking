@@ -208,13 +208,9 @@ def set_reproducible(seed):
     torch.backends.cudnn.benchmark = False
     np.random.seed(seed)
 
-if __name__ == '__main__':
 
-    parser = argparse.ArgumentParser(
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-
-    args = get_args(parser)
-    agents = len(args.landmarks)    #number of agents
+def main(args):
+    agents = len(args.landmarks)  # number of agents
     # check valid number of agents:
     assert agents > 0
 
@@ -224,12 +220,12 @@ if __name__ == '__main__':
     # check input files
     if args.task == 'play':
         error_message = f"""Wrong input files {len(args.files)} for {args.task}
-                            task - should be 1 \'images.txt\' """
+                                task - should be 1 \'images.txt\' """
         assert len(args.files) == 1, (error_message)
     else:
         error_message = f"""Wrong input files {len(args.files)} for
-                            {args.task} task - should be 2 [\'images.txt\',
-                            \'landmarks.txt\'] """
+                                {args.task} task - should be 2 [\'images.txt\',
+                                \'landmarks.txt\'] """
         assert len(args.files) == 2, (error_message)
 
     if args.seed is not None:
@@ -239,7 +235,8 @@ if __name__ == '__main__':
 
     if args.task != 'train':
         dqn = DQN(agents, frame_history=FRAME_HISTORY, logger=logger,
-                  type=args.model_name, collective_rewards=args.team_reward, attention=args.attention, ids=args.landmarks)
+                  type=args.model_name, collective_rewards=args.team_reward, attention=args.attention,
+                  ids=args.landmarks)
         model = dqn.q_network
         model.load_state_dict(torch.load(args.load, map_location=model.device))  # Load pre-trained model
         environment = get_player(files_list=args.files,
@@ -282,3 +279,17 @@ if __name__ == '__main__':
                           model_name=args.model_name, logger=logger, train_freq=args.train_freq,
                           team_reward=args.team_reward, attention=args.attention, lr=args.lr,
                           scheduler_gamma=args.scheduler_gamma, scheduler_step_size=args.scheduler_step_size).train()
+
+    return
+
+
+if __name__ == '__main__':
+
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+
+    args = get_args(parser)
+
+    main(args)
+
+

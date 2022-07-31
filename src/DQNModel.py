@@ -287,12 +287,12 @@ class CommNet(nn.Module):
 
 class DQN:
     # The class initialisation function.
-    def __init__(self, agents, frame_history, logger, number_actions=4, merge_layers=False,
+    def __init__(self, agents, frame_history, logger, number_actions=4, merge_layers=True,
             type="Network3d", collective_rewards=False, attention=False,
             lr=1e-3, scheduler_gamma=0.9, scheduler_step_size=100, ids=None, entropy_reg=0.001):
 
         if merge_layers:
-            self.agents = len(np.unique(np.asarray(ids)))
+            self.agents = len(np.unique(np.asarray(ids)))  # number of unique target agents
         else:
             self.agents = agents
 

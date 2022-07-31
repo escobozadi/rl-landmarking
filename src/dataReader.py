@@ -35,7 +35,7 @@ def getLandmarksFromTXTFile(file, agents, split=' '):
     6  triceps tendon insertion
     7  humerus
     """
-    landmarks = np.zeros((agents, 2))
+    landmarks = np.zeros((8, 2))
     landmarks[:] = np.nan
 
     with open(file) as t:

@@ -116,29 +116,29 @@ class BaselineModel(nn.Module):
         return output3, classification
 
 
-if __name__ == '__main__':
-    model = BaselineModel()
-    path = "/Users/dianaescoboza/Documents/PycharmProjects/rl-landmark/rl-medical/src/data/images/0a0a5d3d-m527_a528_st533_se536_i21457_1_46_US_.png"
-
-    # # image = cv2.resize(cv2.imread(path), (512, 512)).transpose(2, 0, 1)
-    # image = cv2.imread(path).transpose(2, 0, 1)
-    # image = image.astype(np.uint8) / 255
-
-    image = cv2.imread(path)  # .transpose(2, 0, 1)
-    x = round(0.4073333333333333 * image.shape[1])
-    y = round(0.6685823754789273 * image.shape[0])
-    print(image.shape)
-    image = cv2.copyMakeBorder(image, 0, 786 - image.shape[0], 0, 1136 - image.shape[1], cv2.BORDER_CONSTANT)
-    image = image.transpose(2, 0, 1)
-    image = torch.from_numpy(image).float() / 255
-    print("Original image size: {}".format(image.shape))
-    out, c = model.forward(image.unsqueeze(0))
-    print("Landmarks location: ")
-    print(out.shape)
-    print(out)
-    print("Landmarks: ")
-    print(c.shape)
-    print(c)
+# if __name__ == '__main__':
+#     model = BaselineModel()
+#     path = "/Users/dianaescoboza/Documents/PycharmProjects/rl-landmark/rl-medical/src/data/images/0a0a5d3d-m527_a528_st533_se536_i21457_1_46_US_.png"
+#
+#     # # image = cv2.resize(cv2.imread(path), (512, 512)).transpose(2, 0, 1)
+#     # image = cv2.imread(path).transpose(2, 0, 1)
+#     # image = image.astype(np.uint8) / 255
+#
+#     image = cv2.imread(path)  # .transpose(2, 0, 1)
+#     x = round(0.4073333333333333 * image.shape[1])
+#     y = round(0.6685823754789273 * image.shape[0])
+#     print(image.shape)
+#     image = cv2.copyMakeBorder(image, 0, 786 - image.shape[0], 0, 1136 - image.shape[1], cv2.BORDER_CONSTANT)
+#     image = image.transpose(2, 0, 1)
+#     image = torch.from_numpy(image).float() / 255
+#     print("Original image size: {}".format(image.shape))
+#     out, c = model.forward(image.unsqueeze(0))
+#     print("Landmarks location: ")
+#     print(out.shape)
+#     print(out)
+#     print("Landmarks: ")
+#     print(c.shape)
+#     print(c)
 
     # cv2.circle(image, (x, y), radius=5, color=255, thickness=-1)
     # cv2.imshow("image", image)

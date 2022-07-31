@@ -175,14 +175,15 @@ class Trainer(object):
                 loss_dict = {"loss": sum(losses) / len(losses)}
                 self.logger.write_to_board(name, loss_dict, episode)
         for i in range(self.agents):
-            mean_dist = sum(epoch_dists[:, i]) / len(epoch_dists[:, i])
+            mean_dist = np.nansum(epoch_dists[:, i]) / \
+                        (len(epoch_dists[:, i]) - np.count_nonzero(np.isnan(epoch_dists[:, i])))
             mean_dist_dict = {str(i): mean_dist}
             self.logger.write_to_board(
                 f"{name}/mean_dist", mean_dist_dict, episode)
-            min_dist_dict = {str(i): min(epoch_dists[:, i])}
+            min_dist_dict = {str(i): np.nanmin(epoch_dists[:, i])}
             self.logger.write_to_board(
                 f"{name}/min_dist", min_dist_dict, episode)
-            max_dist_dict = {str(i): max(epoch_dists[:, i])}
+            max_dist_dict = {str(i): np.nanmax(epoch_dists[:, i])}
             self.logger.write_to_board(
                 f"{name}/max_dist", max_dist_dict, episode)
         return np.array(list(mean_dist_dict.values())).mean()

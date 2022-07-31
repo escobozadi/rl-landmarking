@@ -227,7 +227,7 @@ class CommNet(nn.Module):
                               for i in range(self.agents)])
         else:
             # if len(agents) > 1:
-            comm = torch.mean(self.input2, dim=1)  # (64,1,512)
+            comm = torch.mean(self.input2[:, agents], dim=1)  # (64,1,512)
             comm = comm.unsqueeze(0).repeat(self.agents, *[1]*len(comm.shape))  # (agents, 64,1,512)
             # else:
             #     comm = torch.as_tensor(input2).repeat(self.agents, *[1]*len(input2.shape))
@@ -247,7 +247,7 @@ class CommNet(nn.Module):
             comm = torch.cat([torch.sum((self.input3.transpose(1, 2) * nn.Softmax(dim=0)(self.comm_att2[i])), dim=2).unsqueeze(0)
                               for i in range(self.agents)])
         else:
-            comm = torch.mean(self.input3, dim=1)
+            comm = torch.mean(self.input3[:, agents], dim=1)
             comm = comm.unsqueeze(0).repeat(self.agents, *[1]*len(comm.shape))
 
         # input4 = []
@@ -263,7 +263,7 @@ class CommNet(nn.Module):
             comm = torch.cat([torch.sum((self.input4.transpose(1, 2) * nn.Softmax(dim=0)(self.comm_att3[i])), dim=2).unsqueeze(0)
                               for i in range(self.agents)])
         else:
-            comm = torch.mean(self.input4, dim=1)
+            comm = torch.mean(self.input4[:, agents], dim=1)
             comm = comm.unsqueeze(0).repeat(self.agents, *[1]*len(comm.shape))
         
         # output = []
@@ -398,8 +398,10 @@ class DQN:
 
         # Forward only on the agents training
         # next_state = next_state.to(self.device)
+        print(targets)
         y = self.target_network.forward(next_state, targets)
         y = y.view(-1, len(targets), self.number_actions)
+        print(y)
         # Get the maximum prediction for the next state from the target network
         max_target_net = y.max(-1)[0]
 
@@ -423,6 +425,8 @@ class LossFunction(nn.Module):
     def __init__(self, beta=0.001):
         super(LossFunction, self).__init__()
         self.beta = beta
+        # self.prob = nn.Softmax()
+        return
 
     def forward(self, network_pred, bellman, pred):
         p = Categorical(logits=network_pred)

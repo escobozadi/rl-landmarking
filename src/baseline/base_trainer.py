@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
-from baseline import BaselineModel
-from data_loader import DataLoader
+from .model import BaselineModel
+from .data_loader import DataLoader
 SMOOTH = 1e-6
 
 class DetecTrainer(object):

@@ -316,7 +316,7 @@ class DQN:
                 self.device)
         elif type == "CommNet":
             self.q_network = CommNet(
-                agents=agents,
+                agents=self.agents,
                 frame_history=frame_history,
                 device=self.device,
                 number_actions=number_actions,

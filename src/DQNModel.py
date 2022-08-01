@@ -427,16 +427,17 @@ class DQN:
 
 
 class LossFunction(nn.Module):
-    def __init__(self, beta=0.001):
+    def __init__(self, beta=0):
         super(LossFunction, self).__init__()
         self.beta = beta
         # self.prob = nn.Softmax()
         return
 
     def forward(self, network_pred, bellman, pred):
-        p = Categorical(logits=network_pred)
-
         dist_loss = torch.nn.SmoothL1Loss()(bellman.flatten(), pred.flatten())
+        if self.beta == 0:
+            return dist_loss
+        p = Categorical(logits=network_pred)
         entropy_loss = -p.entropy().view(-1).sum()
 
         loss = Variable(dist_loss + (self.beta * entropy_loss), requires_grad=True)

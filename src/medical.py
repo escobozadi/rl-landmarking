@@ -293,6 +293,7 @@ class MedicalPlayer(gym.Env):
             go_out, current_loc, next_location = self.move(act, q_values)
         ######################################################################
         # punish -1 reward if the agent tries to go out
+        # TODO: DO NOT PUNISH AGENTS NOT CURRENTLY TRAINING
         if self.task != 'play':
             for i in range(self.agents):
                 if go_out[i]:

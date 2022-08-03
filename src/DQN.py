@@ -298,6 +298,6 @@ if __name__ == '__main__':
     if args.model == 'rl':
         main(args)
     elif args.model == 'baseline':
-        train = DetecTrainer(args.batch_size)
+        train = DetecTrainer(args.batch_size, args.landmarks)
 
 

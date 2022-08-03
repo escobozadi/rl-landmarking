@@ -4,10 +4,11 @@ import numpy as np
 
 class DataLoader(object):
     def __init__(self, files_list, batch_size=1, returnLandmarks=True):
-        assert files_list, 'There is no file given'
+        assert files_list, 'There is no files given'
         # read image filenames
         self.image_files = [line.split('\n')[0]
                             for line in open(files_list[0].name)]
+        self.batch_size = batch_size
         # read landmark filenames if task is train or eval
         self.returnLandmarks = returnLandmarks
         if self.returnLandmarks:
@@ -19,10 +20,9 @@ class DataLoader(object):
 
     def getLandmarksFromTXTFile(self, file, split=' '):
         """
-        Extract each landmark point line by line from a text file, and return vector containing all landmarks.
         0  femur
-        2  tendon
         1  patella
+        2  tendon
         3  tibia/fibula
         4  talus
         5  ulna
@@ -39,10 +39,8 @@ class DataLoader(object):
                 id = int(info[0])
                 landmarks[id, :] = info[1:]
 
-        landmarks = np.asarray(landmarks)  # (# labels, x, y, width, height)
+        landmarks = np.asarray(landmarks)  # (# labels, x, y, height, width)
         targets = np.argwhere(~np.isnan(landmarks[:, 0])).reshape([-1, ])
-        # landmarks[:,0] = -landmarks[:,0]
-        # landmarks = landmarks.reshape((-1, landmarks.shape[1]))
         return landmarks, targets
 
     def decode(self, filename):
@@ -65,24 +63,20 @@ class DataLoader(object):
     def num_files(self):
         return len(self.image_files)
 
-    def sample(self, landmark_ids=None, batch_size=None, shuffle=True):
-        """ return a random sampled ImageRecord from the list of files
-        to sample a new image, should return: image, target loc, file path, spacing
-        spacing: consistent unit, mm
-        image:  image.dims
-        landmark_ids: agent landmark, 0 0 0"""
+    def sample(self, landmark_ids=None, shuffle=True):
         if shuffle:
-            # indexes = np.random.choice(np.arange(self.num_files), batch_size, replace=False)
-            indexes = np.random.choice(np.arange(self.num_files), self.num_files, replace=False)
+            indexes = np.random.choice(np.arange(self.num_files), self.batch_size, replace=False)
         else:
-            indexes = np.arange(self.num_files)
+            indexes = np.arange(self.batch_size)
+        images = []
+        landmarks = []
+        targets = []
         while True:
             for idx in indexes:
                 image = self.decode(self.image_files[idx])
+                images.append(image)
                 if self.returnLandmarks:
-                    # transform landmarks to image space if they are in physical space
-                    landmark_file = self.landmark_files[idx]
-                    landmarks, targets = self.getLandmarksFromTXTFile(landmark_file)  # 8x4, #, 1
+                    landmark, target = self.getLandmarksFromTXTFile(self.landmark_files[idx])  # 8x4, #, 1
                     # if np.isnan(landmarks[landmark_ids]).all():
                     #     continue
                     # scaling coor to the size of the image
@@ -90,12 +84,14 @@ class DataLoader(object):
                     # landmark[:, 1] *= image.dims[1]
                     # landmarks_round = [np.round(landmark[landmark_ids[i] % 15])for i in range(self.agents)]
                 else:
-                    landmarks = None
-                    targets = None
+                    landmark = None
+                    target = None
+                landmarks.append(landmark)
+                targets.append(target)
                 # extract filename from path, remove .png extension
                 # image_filenames = [self.image_files[idx][:-4]] * self.agents
                 # images = [image] * self.agents
-                yield image, landmarks, targets
+            yield images, landmarks, targets
 
 
 class ImageRecord(object):

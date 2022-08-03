@@ -83,7 +83,7 @@ class Trainer(object):
                 score = [sum(x) for x in zip(score, reward)]
                 obs = next_obs
                 if acc_steps % self.train_freq == 0:
-                    mini_batch = self.buffer.sample(self.batch_size)  #
+                    mini_batch = self.buffer.sample(self.batch_size, agents_training)  #
                     loss = self.dqn.train_q_network(mini_batch, self.gamma, agents_training)
                     losses.append(loss)
                 if all(t for t in terminal):

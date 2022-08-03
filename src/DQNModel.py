@@ -384,7 +384,7 @@ class DQN:
     def _calculate_loss(self, transitions, discount_factor, targets):
         '''
         Transitions are tuple of shape
-        (states, actions, rewards, next_states, isOver)
+        batch size * (states, actions, rewards, next_states, isOver)
         target: indices of the agents with a target in current image
         '''
         curr_state = torch.tensor(transitions[0])  # states

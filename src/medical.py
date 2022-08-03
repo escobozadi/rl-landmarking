@@ -146,7 +146,7 @@ class MedicalPlayer(gym.Env):
         self._restart_episode(fixed_spawn)
         if self.task == "eval":
             return self._current_state(), self._target_loc
-        return self._current_state()
+        return self._current_state()  # cropped screen agent sees
 
     def _restart_episode(self, fixed_spawn=None):
         """  restart current episode  """
@@ -293,11 +293,19 @@ class MedicalPlayer(gym.Env):
             go_out, current_loc, next_location = self.move(act, q_values)
         ######################################################################
         # punish -1 reward if the agent tries to go out
-        # TODO: DO NOT PUNISH AGENTS NOT CURRENTLY TRAINING
+        # Only punishing agents not training
+        # print("TRAIN STEP ON TRAINING AGENTS")
+        # print(self._target_loc)
+        # print(np.argwhere(~np.isnan(np.asarray(self._target_loc)[:, 0])))
+        agent_wt = np.argwhere(~np.isnan(np.asarray(self._target_loc)[:, 0])).reshape([-1, ])
         if self.task != 'play':
             for i in range(self.agents):
                 if go_out[i]:
-                    self.reward[i] = -1
+                    if self.task != "train":
+                        self.reward[i] = -1
+                    else:
+                        if i in agent_wt:
+                            self.reward[i] = -1
                 else:  # reward based on closeness
                     self.reward[i] = self._calc_reward(
                         current_loc[i], next_location[i], agent=i)

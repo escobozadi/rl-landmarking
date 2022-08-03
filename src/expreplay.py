@@ -75,7 +75,6 @@ class ReplayMemory(object):
         idx = (self._curr_pos + idx) % self._curr_size
         k = self.history_len
 
-        print("Sampling from buffer")
         states = []
         next_states = []
         rewards = []
@@ -92,10 +91,7 @@ class ReplayMemory(object):
                 end = idx + k - self._curr_size
                 states.append(self._slice(self.state[i], idx, end))
                 next_states.append(
-                    self._slice(
-                        self.state[i],
-                        idx + 1,
-                        end + 1))
+                    self._slice(self.state[i], idx + 1, end + 1))
                 isOver.append(self._slice(self.isOver[i], idx, end))
                 rewards.append(self._slice(self.reward[i], idx, end))
                 actions.append(self._slice(self.action[i], idx, end))
@@ -103,9 +99,20 @@ class ReplayMemory(object):
         return states_padded, actions, rewards, next_states, isOver
 
     def sample(self, batch_size, agents_training=None):
-        # TODO: SAMPLE ONLY HISTORY WHERE AGENT HAD A TARGET TO TRAIN ON
+        # entries = np.arange(len(self) - self.history_len)
+        # np.random.shuffle(entries)
+        # idxes = []
+        # for j in entries:
+        #     for i in agents_training:
+        #         if self.reward[i, j] != 0:
+        #             idxes.append(j)
+        #         if len(idxes) == batch_size:
+        #             break
+        # SAMPLE ONLY HISTORY WHERE AGENT HAD A TARGET TO TRAIN ON
         idxes = [np.random.randint(0, len(self) - 1)
                  for _ in range(batch_size)]
+
+        # print("Agents Training: {}".format(agents_training))
         states = []
         next_states = []
         rewards = []

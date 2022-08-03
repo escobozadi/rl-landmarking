@@ -71,7 +71,7 @@ class Evaluator(object):
 
     def play_one_episode(self, render=False, frame_history=4, fixed_spawn=None):
 
-        def predict(obs_stack, agents_wtargets):
+        def predict(obs_stack, agents_wtargets=None):
             """
             Run a full episode, mapping observation to action,
             using greedy policy.
@@ -84,15 +84,16 @@ class Evaluator(object):
             return greedy_steps, q_vals.data.numpy()
 
         obs_stack, targets = self.env.reset(fixed_spawn)
-        agents_wtargets = np.argwhere(~np.isnan(np.asarray(targets)[:, 0])).reshape([-1, ])
+        # agents_wtargets = np.argwhere(~np.isnan(np.asarray(targets)[:, 0])).reshape([-1, ])
         # Here obs have shape (agent, *image_size, frame_history)
         sum_r = np.zeros(self.agents)
         isOver = [False] * self.agents
         start_dists = None
         steps = 0
         while steps < self.max_steps and not np.all(isOver):
-            acts, q_values = predict(obs_stack, agents_wtargets)
-            obs_stack, r, isOver, info, agents_wtarget = self.env.step(acts, q_values, isOver)
+            acts, q_values = predict(obs_stack)
+            # obs_stack, r, isOver, info, agents_wtarget = self.env.step(acts, q_values, isOver)
+            obs_stack, r, isOver, info, _ = self.env.step(acts, q_values, isOver)
             steps += 1
             if start_dists is None:
                 start_dists = [

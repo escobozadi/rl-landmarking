@@ -95,7 +95,7 @@ class DataLoader(object):
                 # extract filename from path, remove .png extension
                 # image_filenames = [self.image_files[idx][:-4]] * self.agents
                 # images = [image] * self.agents
-                yield (image, landmarks, targets)
+                yield image, landmarks, targets
 
 
 class ImageRecord(object):

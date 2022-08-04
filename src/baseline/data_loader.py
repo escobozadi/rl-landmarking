@@ -46,12 +46,12 @@ class DataLoader(object):
                 id = int(info[0])
                 landmarks[id, :] = info[1:]
 
-        landmarks = np.asarray(landmarks)  # (# labels, x, y, height, width)
+        # landmarks = np.asarray(landmarks)  # (# labels, x, y, height, width)
         targets = np.argwhere(~np.isnan(landmarks[:, 0])).reshape([-1, ])
         for i in range(self.landmarks):
             if i in targets:
                 classes[i] = 1
-        return landmarks, classes
+        return landmarks.tolist(), classes
 
     def decode(self, filename):
         np_image = cv2.imread("." + filename)
@@ -79,21 +79,20 @@ class DataLoader(object):
         return
 
     def sample(self):
-        while True:
-            for batch in self.batchidx:
-                images = []
-                landmarks = []
-                targets = []
-                for i in batch:
-                    imagefile = self.image_files[i]
-                    landmarkfile = self.landmark_files[i]
-                    image = self.decode(imagefile)
-                    landmark, target = self.getLandmarksFromTXTFile(landmarkfile)
-                    images.append(image)
-                    landmarks.append(landmark)
-                    targets.append(target)
-                targets = torch.as_tensor(targets)
-                landmarks = torch.as_tensor(landmarks)
-                images = torch.as_tensor(np.asarray(images))
-                yield targets, landmarks, images
+        for batch in self.batchidx:
+            images = []
+            landmarks = []
+            targets = []
+            for i in batch:
+                imagefile = self.image_files[i]
+                landmarkfile = self.landmark_files[i]
+                image = self.decode(imagefile)
+                landmark, target = self.getLandmarksFromTXTFile(landmarkfile)
+                images.append(image)
+                landmarks.append(landmark)
+                targets.append(target)
+            targets = torch.as_tensor(targets)
+            landmarks = torch.as_tensor(landmarks)
+            images = torch.as_tensor(np.asarray(images))
+            yield targets, landmarks, images
 

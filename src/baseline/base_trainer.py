@@ -5,8 +5,8 @@ import numpy as np
 import warnings
 import torchvision.utils
 
-from model import BaselineModel
-from data_loader import DataLoader
+from .model import BaselineModel
+from .data_loader import DataLoader
 from torch.autograd import Variable
 from torch.utils.tensorboard import SummaryWriter
 
@@ -51,24 +51,19 @@ class DetecTrainer(object):
         dicDist = {}
         epoch = 0
         for i in range(self.max_epochs):
-            print("EPOCH ", epoch)
             self.model.train(True)
-
             # Restart Generator
             self.traindata.restartfiles()
             self.sample = self.traindata.sample()
-
             for label in self.labels:
                 dicDist[str(label)] = np.array([])
+
             loss = 0
             for targets, boxes, images in self.sample:
                 images.to(self.device)
                 self.optimizer.zero_grad()
                 # location: batch size x (#landmarks,4)
                 loc_pred, class_pred = self.model.forward(images.float())
-                print("TRAINING")
-                print("PREDICTIONS \n", loc_pred)
-                print("BOXES \n", boxes)
 
                 # Calculate loss
                 batch_loss = self.LossFunc(loc_pred, class_pred, boxes, targets)
@@ -111,9 +106,6 @@ class DetecTrainer(object):
             loc_pred, class_pred = self.model.forward(imgs.float())
             loss_batch = self.LossFunc(loc_pred, class_pred, boxes, targets)
             loss += torch.mean(loss_batch)
-            print("VALIDATION")
-            print("PREDICTIONS \n", loc_pred)
-            print("BOXES \n", boxes)
 
             dist = torch.norm(loc_pred[:, :, :2] - boxes[:, :, :2],
                               dim=2).detach().numpy()

@@ -10,15 +10,15 @@ class DataLoader(object):
         self.batch_size = batch_size
         self.landmarks = landmarks
         self.returnLandmarks = returnLandmarks
-        # self.image_files = [line.split('\n')[0]
-        #                     for line in open(files_list[0].name)]
-        # if self.returnLandmarks:
-        #     self.landmark_files = [line.split('\n')[0]
-        #                            for line in open(files_list[1].name)]
         self.image_files = [line.split('\n')[0]
-                            for line in open(files_list[0])]
-        self.landmark_files = [line.split('\n')[0]
-                               for line in open(files_list[1])]
+                            for line in open(files_list[0].name)]
+        if self.returnLandmarks:
+            self.landmark_files = [line.split('\n')[0]
+                                   for line in open(files_list[1].name)]
+        # self.image_files = [line.split('\n')[0]
+        #                     for line in open(files_list[0])]
+        # self.landmark_files = [line.split('\n')[0]
+        #                        for line in open(files_list[1])]
 
         self.files_idxes = np.arange(len(self.image_files))
         assert len(self.image_files) == len(self.landmark_files), """number of image files is not equal to
@@ -39,7 +39,7 @@ class DataLoader(object):
         landmarks[:] = np.nan
         # classes = np.zeros((self.landmarks, ))
         classes = [0 for i in range(self.landmarks)]
-        with open("." + file) as t:
+        with open(file) as t:
             lines = [x.strip() for x in list(t) if x]
             for l in lines:
                 info = l.split(" ")
@@ -54,7 +54,7 @@ class DataLoader(object):
         return landmarks.tolist(), classes
 
     def decode(self, filename):
-        np_image = cv2.imread("." + filename)
+        np_image = cv2.imread(filename)
         if np_image is None:
             print("Empty Image")
             print(filename)

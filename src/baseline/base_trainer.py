@@ -35,9 +35,10 @@ class DetecTrainer(object):
         self.LossFunc = BaselineLoss()
         parameters = filter(lambda p: p.requires_grad, self.model.parameters())
         self.optimizer = torch.optim.Adam(parameters, lr=arguments.lr)
+        self.best_val = float('inf')
 
         # Logger
-        self.data_logger = SummaryWriter()
+        self.data_logger = SummaryWriter(comment="BaselineModel")
         # self.data_logger.add_hparams({"lr": arguments.lr, "batch_size": arguments.batch_size})
         _, _, imgs = next(self.sample)
         grid = torchvision.utils.make_grid(imgs)
@@ -92,7 +93,7 @@ class DetecTrainer(object):
             self.data_logger.add_scalars("Train Avg Distance", dicDist, epoch)
             self.validation()
 
-        torch.save(self.model.state_dict(), "/baseline/runs")
+        torch.save(self.model.state_dict(), self.data_logger.get_logdir() + "/baseline_model.pt")
         self.data_logger.close()
         return
 
@@ -123,6 +124,10 @@ class DetecTrainer(object):
 
         self.data_logger.add_scalar("Val Loss", loss)
         self.data_logger.add_scalars("Val Avg Distance", dicDist)
+        if loss <= self.best_val:
+            print("Validation Improved!")
+            torch.save(self.model.state_dict(), self.data_logger.get_logdir() + "best_model.pt")
+            self.best_val = loss
         print("Validation Epoch, Loss: {}".format(loss))
         print("Validation AvgDistance: ", dicDist)
         return

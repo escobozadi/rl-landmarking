@@ -27,7 +27,7 @@ class BaselineModel(nn.Module):
             layer_count += 1
 
         self.backbone = nn.Sequential(*list(self.backbone.children())[:7]).to(self.device)
-        print(self.backbone)
+        # print(self.backbone)
 
         self.conv0 = nn.Conv2d(
             in_channels=40,

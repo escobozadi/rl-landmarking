@@ -38,11 +38,11 @@ class DetecTrainer(object):
 
         # Logger
         self.data_logger = SummaryWriter()
-        # imgs, _, _ = next(self.sample)
-        # # imgs = torch.as_tensor(imgs)
-        # grid = torchvision.utils.make_grid(imgs)
-        # self.data_logger.add_image("images", grid)
-        # self.data_logger.add_graph(self.model, input_to_model=imgs)
+        # self.data_logger.add_hparams({"lr": arguments.lr, "batch_size": arguments.batch_size})
+        _, _, imgs = next(self.sample)
+        grid = torchvision.utils.make_grid(imgs)
+        self.data_logger.add_image("images", grid)
+        self.data_logger.add_graph(self.model, input_to_model=imgs)
         # self.data_logger.close()
 
         return
@@ -92,7 +92,8 @@ class DetecTrainer(object):
             self.data_logger.add_scalars("Train Avg Distance", dicDist, epoch)
             self.validation()
 
-        torch.save(self.model.state_dict(), "/runs")
+        torch.save(self.model.state_dict(), "/baseline/runs")
+        self.data_logger.close()
         return
 
     def validation(self):
@@ -171,6 +172,11 @@ class BaselineLoss(nn.Module):
 
         batch_loss = torch.transpose(torch.stack((iouloss+locloss, classloss)), 0, 1)
         return Variable(batch_loss, requires_grad=True)
+
+
+class Evaluate(object):
+    def __init__(self):
+        pass
 
 
 class Args(object):

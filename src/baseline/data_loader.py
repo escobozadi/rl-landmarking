@@ -21,6 +21,7 @@ class DataLoader(object):
         #                        for line in open(files_list[1])]
 
         self.files_idxes = np.arange(len(self.image_files))
+        self.restartfiles()
         assert len(self.image_files) == len(self.landmark_files), """number of image files is not equal to
                     number of landmark files"""
 

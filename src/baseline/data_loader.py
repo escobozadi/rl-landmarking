@@ -1,21 +1,27 @@
 import cv2
 import numpy as np
+import torch
 
 
 class DataLoader(object):
-    def __init__(self, files_list, batch_size=1, returnLandmarks=True):
+    def __init__(self, files_list, landmarks=8, batch_size=1, returnLandmarks=True):
         assert files_list, 'There is no files given'
-        # read image filenames
-        self.image_files = [line.split('\n')[0]
-                            for line in open(files_list[0].name)]
+
         self.batch_size = batch_size
-        # read landmark filenames if task is train or eval
+        self.landmarks = landmarks
         self.returnLandmarks = returnLandmarks
-        if self.returnLandmarks:
-            self.landmark_files = [
-                line.split('\n')[0] for line in open(
-                    files_list[1].name)]
-            assert len(self.image_files) == len(self.landmark_files), """number of image files is not equal to
+        # self.image_files = [line.split('\n')[0]
+        #                     for line in open(files_list[0].name)]
+        # if self.returnLandmarks:
+        #     self.landmark_files = [line.split('\n')[0]
+        #                            for line in open(files_list[1].name)]
+        self.image_files = [line.split('\n')[0]
+                            for line in open(files_list[0])]
+        self.landmark_files = [line.split('\n')[0]
+                               for line in open(files_list[1])]
+
+        self.files_idxes = np.arange(len(self.image_files))
+        assert len(self.image_files) == len(self.landmark_files), """number of image files is not equal to
                     number of landmark files"""
 
     def getLandmarksFromTXTFile(self, file, split=' '):
@@ -29,10 +35,11 @@ class DataLoader(object):
         6  triceps tendon insertion
         7  humerus
         """
-        landmarks = np.zeros((8, 4))
+        landmarks = np.zeros((self.landmarks, 4))
         landmarks[:] = np.nan
-
-        with open(file) as t:
+        # classes = np.zeros((self.landmarks, ))
+        classes = [0 for i in range(self.landmarks)]
+        with open("." + file) as t:
             lines = [x.strip() for x in list(t) if x]
             for l in lines:
                 info = l.split(" ")
@@ -41,59 +48,52 @@ class DataLoader(object):
 
         landmarks = np.asarray(landmarks)  # (# labels, x, y, height, width)
         targets = np.argwhere(~np.isnan(landmarks[:, 0])).reshape([-1, ])
-        return landmarks, targets
+        for i in range(self.landmarks):
+            if i in targets:
+                classes[i] = 1
+        return landmarks, classes
 
     def decode(self, filename):
-        ''' return image object with info'''
-        image = ImageRecord()
-        image.name = filename
-
-        np_image = cv2.imread(filename)
+        np_image = cv2.imread("." + filename)
         if np_image is None:
             print("Empty Image")
-            print(image.name)
-        image.dims = np_image.shape  # (x,y)
-        np_image = cv2.copyMakeBorder(np_image, 0, 786 - np_image.shape[0], 0, 1136 - np_image.shape[1], cv2.BORDER_CONSTANT)
+            print(filename)
+        np_image = cv2.copyMakeBorder(np_image, 0, 786 - np_image.shape[0],
+                                      0, 1136 - np_image.shape[1], cv2.BORDER_CONSTANT)
         np_image = np_image.transpose(2, 0, 1)  # (channels, x, y)
-        image.data = np_image
-
-        return image
+        return np_image
 
     @property
     def num_files(self):
         return len(self.image_files)
 
-    def sample(self, landmark_ids=None, shuffle=True):
+    def restartfiles(self, shuffle=True):
+        self.files_idxes = np.arange(self.num_files)
         if shuffle:
-            indexes = np.random.choice(np.arange(self.num_files), self.batch_size, replace=False)
-        else:
-            indexes = np.arange(self.batch_size)
-        images = []
-        landmarks = []
-        targets = []
+            np.random.shuffle(self.files_idxes)
+        self.batchidx = []
+        while len(self.files_idxes) != 0:
+            batch = self.files_idxes[:min(len(self.files_idxes), self.batch_size)]
+            self.files_idxes = self.files_idxes[len(batch):]
+            self.batchidx.append(batch)
+        return
+
+    def sample(self):
         while True:
-            for idx in indexes:
-                image = self.decode(self.image_files[idx])
-                images.append(image)
-                if self.returnLandmarks:
-                    landmark, target = self.getLandmarksFromTXTFile(self.landmark_files[idx])  # 8x4, #, 1
-                    # if np.isnan(landmarks[landmark_ids]).all():
-                    #     continue
-                    # scaling coor to the size of the image
-                    # landmark[:, 0] *= image.dims[0]
-                    # landmark[:, 1] *= image.dims[1]
-                    # landmarks_round = [np.round(landmark[landmark_ids[i] % 15])for i in range(self.agents)]
-                else:
-                    landmark = None
-                    target = None
-                landmarks.append(landmark)
-                targets.append(target)
-                # extract filename from path, remove .png extension
-                # image_filenames = [self.image_files[idx][:-4]] * self.agents
-                # images = [image] * self.agents
-            yield images, landmarks, targets
-
-
-class ImageRecord(object):
-    pass
+            for batch in self.batchidx:
+                images = []
+                landmarks = []
+                targets = []
+                for i in batch:
+                    imagefile = self.image_files[i]
+                    landmarkfile = self.landmark_files[i]
+                    image = self.decode(imagefile)
+                    landmark, target = self.getLandmarksFromTXTFile(landmarkfile)
+                    images.append(image)
+                    landmarks.append(landmark)
+                    targets.append(target)
+                targets = torch.as_tensor(targets)
+                landmarks = torch.as_tensor(landmarks)
+                images = torch.as_tensor(np.asarray(images))
+                yield targets, landmarks, images
 

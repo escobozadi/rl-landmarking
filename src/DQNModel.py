@@ -3,6 +3,9 @@ import torch.nn as nn
 from torch.distributions import Categorical
 import numpy as np
 from torch.autograd import Variable
+from torchvision.models.segmentation import \
+    deeplabv3_mobilenet_v3_large
+
 
 class Network3D(nn.Module):
 
@@ -84,13 +87,25 @@ class Network3D(nn.Module):
 
 ########################################################################################
 
+
 class CommNet(nn.Module):
 
     def __init__(self, agents, frame_history, device, landmarks=None,
                  number_actions=4, xavier=True, attention=False):
         super(CommNet, self).__init__()
-
         self.agents = agents    # number of landmarks
+
+        # Pretrained Segmentation Model
+        self.backbone = deeplabv3_mobilenet_v3_large(pretrained_backbone=True).backbone
+        layer_count = 0
+        for child in self.backbone.children():
+            if layer_count <= 5:
+                for param in child.parameters():
+                    param.requires_grad = False
+            layer_count += 1
+        self.backbone = nn.Sequential(*list(self.backbone.children())[:5]).to(self.device)
+        print(self.backbone)
+
         if landmarks is None:
             # [0 1 2 3 4 5 6 7]
             self.agents_targets = np.arange(self.agents)
@@ -199,34 +214,23 @@ class CommNet(nn.Module):
         else:
             agents = agents_training
 
-        # print("Agents Training idx: {}".format())
-
-        # Shared layers
-        # input2 = []
-        # for i in range(self.agents):
         for i in agents:  # id of agents with a target to train with [2, 6, 7]
             x = input1[:, i]    # (64,1,4,61,61)
             x = self.conv0(x)
             # x = self.conv0(x.float())   # (64,1,32,59,59)
             x = self.prelu0(x)
-            x = self.maxpool0(x)    #(64,1,32,30,30)
-            x = self.conv1(x)       #(32,27,27)
+            x = self.maxpool0(x)    # (64,1,32,30,30)
+            x = self.conv1(x)       # (32,27,27)
             x = self.prelu1(x)
-            x = self.maxpool1(x)    #(32,13,13)
-            x = self.conv2(x)       #(64,12,12)
+            x = self.maxpool1(x)    # (32,13,13)
+            x = self.conv2(x)       # (64,12,12)
             x = self.prelu2(x)
-            x = self.maxpool2(x)    #(64,6,6)
-            x = self.conv3(x)       #(64,4,4)
+            x = self.maxpool2(x)    # (64,6,6)
+            x = self.conv3(x)       # (64,4,4)
             x = self.prelu3(x)
             x = x.view(-1, 64*4*4)     # (64,2,512)
             self.input2[:, i] = x
             # input2.append(x)
-        # output (64,2,512)
-        # input2 = torch.stack(input2, dim=1)  # batch-size, agents,
-        # zeros = torch.zeros([input2.shape[0], self.agents, input2.shape[2]])
-        # for i in range(len(agents)):
-        #     zeros[:, agents[i]] = input2[:, i]
-        # input2 = zeros
 
         # Communication layers
         if self.attention:

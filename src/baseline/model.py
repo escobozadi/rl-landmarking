@@ -2,8 +2,6 @@ import torch
 import cv2
 import os
 import torch.nn as nn
-import torchvision.transforms as T
-import numpy as np
 from torchvision.models.segmentation import \
     deeplabv3_mobilenet_v3_large
 
@@ -13,7 +11,6 @@ class BaselineModel(nn.Module):
     def __init__(self, targets=8):
         super(BaselineModel, self).__init__()
         self.targets = targets
-
         self.device = torch.device(
             "cuda:0" if torch.cuda.is_available() else "cpu")
 

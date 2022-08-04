@@ -1,23 +1,26 @@
 import torch
+import os
 import torch.nn as nn
 import numpy as np
-from .model import BaselineModel
-from .data_loader import DataLoader
+import torchvision.utils
+
+from model import BaselineModel
+from data_loader import DataLoader
 from torch.autograd import Variable
 from torch.utils.tensorboard import SummaryWriter
 
-SMOOTH = 1e-6
-
 
 class DetecTrainer(object):
-    def __init__(self, arguments, label_ids, batch_size=64):
-        self.batch_size = batch_size
+    def __init__(self, arguments, label_ids):
+        self.batch_size = arguments.batch_size
         self.labels = label_ids
         self.max_epochs = arguments.max_episodes
-        self.sample = DataLoader(arguments.files, arguments.batch_size).sample()
-        self.val_data = DataLoader(arguments.val_files).sample()
-        self.LossFunc = BaselineLoss()
-        self.data_logger = SummaryWriter()
+        # Data Sampler
+        self.traindata = DataLoader(arguments.files, landmarks=len(label_ids),
+                                    batch_size=arguments.batch_size)
+        self.sample = self.traindata.sample()
+        self.valdata = DataLoader(arguments.val_files)
+        self.val_sample = self.valdata.sample()
 
         # Model
         self.model = BaselineModel()
@@ -28,35 +31,62 @@ class DetecTrainer(object):
             print("{} GPUs Available for Training".format(torch.cuda.device_count()))
             self.q_network = nn.DataParallel(self.model)
         self.model.to(self.device)
+        self.LossFunc = BaselineLoss()
         parameters = filter(lambda p: p.requires_grad, self.model.parameters())
         self.optimizer = torch.optim.Adam(parameters, lr=arguments.lr)
+
+        # Logger
+        self.data_logger = SummaryWriter()
+        # imgs, _, _ = next(self.sample)
+        # # imgs = torch.as_tensor(imgs)
+        # grid = torchvision.utils.make_grid(imgs)
+        # self.data_logger.add_image("images", grid)
+        # self.data_logger.add_graph(self.model, input_to_model=imgs)
+        # self.data_logger.close()
 
         return
 
     def train(self):
+        dicDist = {}
         epoch = 0
         for i in range(self.max_epochs):
             self.model.train(True)
-            box_losses = []
+            self.traindata.restartfiles()
+            for label in self.labels:
+                dicDist[label] = np.array([])
             loss = 0
-            for images, boxes, targets in next(self.sample):
-                images = images.to(self.device)
+            for targets, boxes, images in self.sample:
+                images.to(self.device)
                 self.optimizer.zero_grad()
+                # location: batch size x (#landmarks,4)
                 loc_pred, class_pred = self.model.forward(images.float())
                 # Calculate loss
                 batch_loss = self.LossFunc(loc_pred, class_pred, boxes, targets)
                 batch_loss.backward()
+                loss += batch_loss
 
                 self.optimizer.step()
                 epoch += 1
-
+                print("Shape of predictions", loc_pred.shape)
+                dist = np.linalg.norm(loc_pred[:, :2] - boxes[:, :2])
+                # for i in range(len(dicDist)):
+                #     np.append(dicDist[i], loc_pred[:, i])
+            self.data_logger.add_scalar("Loss", loss, epoch)
+            # self.data_logger.add_scalars("Avg Distance", dicDist, epoch)
             self.validation()
-
+            print("Epoch {}, Loss: {}".format(epoch, loss))
+        torch.save(self.model.state_dict(), "./runs")
         return
 
     def validation(self):
         self.model.train(False)
+        loss = 0
+        for imgs, boxes, targets in next(self.sample):
+            loc_pred, class_pred = self.model.forward(imgs.float())
+            loss_batch = self.LossFunc(loc_pred, class_pred, boxes, targets)
+            loss += loss_batch
 
+        print("Validation Epoch, Loss: {}".format(loss))
         return
 
 
@@ -65,42 +95,63 @@ class BaselineLoss(nn.Module):
         super(BaselineLoss, self).__init__()
 
     def forward(self, boxpred, classpred, boxes, labels):
+        idx = (labels == 1)
         # Boxes: (x, y, height, width)
         # Class Loss
-        lossfunc = nn.BCEWithLogitsLoss()
-        _, pred = torch.max(labels, dim=1)
-        classloss = lossfunc(classpred, pred)
+        lossfunc = nn.BCEWithLogitsLoss(reduce=False)
+        pred = ((classpred > 0.5) * 1).double()
+        classloss = lossfunc(labels.double(), pred)
+        classloss = torch.mean(classloss, 1)
+        print("CLASS LOSS")
+        print(classloss)
 
         # IoU Loss
         # intersection = (boxpred[:2] + boxes[:2])/2
-        top_left_t = (boxes[0] - boxes[3]/2, boxes[1] - boxes[2]/2)
-        top_left_p = (boxpred[0] - boxpred[3]/2, boxpred[1] - boxpred[2]/2)
-        bot_right_t = (boxes[0] + boxes[3]/2, boxes[1] + boxes[2]/2)
-        bot_right_p = (boxpred[0] + boxpred[3]/2, boxpred[1] + boxpred[2]/2)
-        x1 = max(top_left_t[0], top_left_p[0])
-        y1 = max(top_left_t[1], top_left_p[1])
-        x2 = max(bot_right_t[0], bot_right_p[0])
-        y2 = max(bot_right_t[1], bot_right_p[1])
-        interArea = max(0, abs(x1-x2)) * max(0, abs(y1-y2))
-        areaBoxes = boxes[2] * boxes[3]
-        areaPred = boxpred[2] * boxpred[3]
+        top_left_t = torch.stack((boxes[:, :, 0] - boxes[:, :, 3]/2,
+                      boxes[:, :, 1] - boxes[:, :, 2]/2), 2)
+        top_left_p = torch.stack((boxpred[:, :, 0] - boxpred[:, :, 3]/2,
+                      boxpred[:, :, 1] - boxpred[:, :, 2]/2), 2)
+        bot_right_t = torch.stack((boxes[:, :, 0] + boxes[:, :, 3]/2,
+                       boxes[:, :, 1] + boxes[:, :, 2]/2), 2)
+        bot_right_p = torch.stack((boxpred[:, :, 0] + boxpred[:, :, 3]/2,
+                       boxpred[:, :, 1] + boxpred[:, :, 2]/2), 2)
+        x1 = torch.max(top_left_t[:, :, 0], top_left_p[:, :, 0])
+        y1 = torch.max(top_left_t[:, :, 1], top_left_p[:, :, 1])
+        x2 = torch.max(bot_right_t[:, :, 0], bot_right_p[:, :, 0])
+        y2 = torch.max(bot_right_t[:, :, 1], bot_right_p[:, :, 1])
+        interArea = abs(torch.sub(x1, x2)) * abs(torch.sub(y1, y2))
+        areaBoxes = boxes[:, :, 2] * boxes[:, :, 3]
+        areaPred = boxpred[:, :, 2] * boxpred[:, :, 3]
         iouloss = interArea / (areaBoxes+areaPred-interArea)
+        iouloss = torch.nanmean(iouloss, 1)
+        print("IOU LOSS")
+        print(iouloss)
 
-        #Location Loss
-        locloss = torch.norm(boxes[:2] - boxpred[:2])
+        # Location Loss
+        locloss = torch.norm(torch.nan_to_num(boxes[:, :, :2]) - torch.nan_to_num(boxpred[:, :, :2]),
+                             dim=2)
+        locloss = torch.mean(locloss * idx, 1)
+        print("DISTANCE LOSS")
+        print(locloss)
 
-        return Variable(classloss + iouloss + locloss).requires_grad(True)
+        print(classloss + iouloss + locloss)
+        return Variable(classloss + iouloss + locloss, requires_grad=True)
 
 
 class Args(object):
     def __init__(self):
         self.max_episodes = 10
-        self.files = None
+        self.files = ["../data/filenames/local_images.txt",
+                      "../data/filenames/local_landmarks.txt"]
+        self.val_files = ["../data/filenames/images_test2.txt",
+                          "../data/filenames/landmarks_test2.txt"]
         self.lr = 0.001
-        self.batch_size = 15
+        self.batch_size = 2
 
 
 if __name__ == '__main__':
     args = Args()
     agents = [0, 1, 2, 3, 4, 5, 6, 7]
     trainer = DetecTrainer(args, agents)
+    trainer.train()
+

@@ -1,5 +1,5 @@
 import torch
-import os
+import time
 import torch.nn as nn
 import numpy as np
 import warnings
@@ -50,6 +50,7 @@ class DetecTrainer(object):
     def train(self):
         dicDist = {}
         epoch = 0
+        start = time.time()
         for i in range(self.max_epochs):
             self.model.train(True)
             # Restart Generator
@@ -83,7 +84,9 @@ class DetecTrainer(object):
                     dicDist[k] = np.nanmean(dicDist[k])
 
             print("Epoch {}, Loss: {}".format(epoch, loss))
-            print("Training AvgDistance: ", dicDist)
+            for k in dicDist.keys():
+                dicDist[k] = np.nanmean(dicDist[k])
+                print("Training AvgDistance Agent {}: {}".format(k, dicDist[k]))
 
             self.data_logger.add_scalar("Train Loss", loss, epoch)
             self.data_logger.add_scalars("Train Avg Distance", dicDist, epoch)
@@ -149,20 +152,25 @@ class BaselineLoss(nn.Module):
                        boxpred[:, :, 1] + boxpred[:, :, 2]/2), 2)
         x1 = torch.max(top_left_t[:, :, 0], top_left_p[:, :, 0])
         y1 = torch.max(top_left_t[:, :, 1], top_left_p[:, :, 1])
-        x2 = torch.max(bot_right_t[:, :, 0], bot_right_p[:, :, 0])
-        y2 = torch.max(bot_right_t[:, :, 1], bot_right_p[:, :, 1])
-        interArea = abs(torch.sub(x1, x2)) * abs(torch.sub(y1, y2))
+        x2 = torch.min(bot_right_t[:, :, 0], bot_right_p[:, :, 0])
+        y2 = torch.min(bot_right_t[:, :, 1], bot_right_p[:, :, 1])
+        interArea = torch.sub(x1, x2) * torch.sub(y1, y2)
+        interArea[(interArea < 0).nonzero(as_tuple=True)] = 0
         areaBoxes = boxes[:, :, 2] * boxes[:, :, 3]
         areaPred = boxpred[:, :, 2] * boxpred[:, :, 3]
         iouloss = interArea / (areaBoxes+areaPred-interArea)
         iouloss = torch.nanmean(iouloss, 1)
 
+
         # Location Loss
-        locloss = torch.norm(torch.nan_to_num(boxes[:, :, :2]) - torch.nan_to_num(boxpred[:, :, :2]),
-                             dim=2)
+        disloss = nn.L1Loss()
+        # locloss = torch.norm(torch.nan_to_num(boxes[:, :, :2]) - boxpred[:, :, :2],
+        #                      dim=2)
+        locloss = disloss(torch.nan_to_num(boxes[:, :, :2]), boxpred[:, :, :2])
         locloss = torch.mean(locloss * idx, 1)
 
-        return Variable(classloss + iouloss + locloss, requires_grad=True)
+        batch_loss = torch.transpose(torch.stack((iouloss+locloss, classloss)), 0, 1)
+        return Variable(batch_loss, requires_grad=True)
 
 
 class Args(object):

@@ -12,7 +12,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 
 class DetecTrainer(object):
-    def __init__(self, arguments, label_ids):
+    def __init__(self, arguments, label_ids, useparallel=False):
         self.batch_size = arguments.batch_size
         self.labels = label_ids
         self.max_epochs = arguments.max_episodes
@@ -28,9 +28,10 @@ class DetecTrainer(object):
         self.device = torch.device(
             "cuda:0" if torch.cuda.is_available() else "cpu")
         self.model.train(True)
-        if torch.cuda.device_count() > 1:
-            print("{} GPUs Available for Training".format(torch.cuda.device_count()))
-            self.q_network = nn.DataParallel(self.model)
+        if useparallel:
+            if torch.cuda.device_count() > 1:
+                print("{} GPUs Available for Training".format(torch.cuda.device_count()))
+                self.q_network = nn.DataParallel(self.model)
         self.model.to(self.device)
         self.LossFunc = BaselineLoss()
         parameters = filter(lambda p: p.requires_grad, self.model.parameters())
@@ -41,6 +42,7 @@ class DetecTrainer(object):
         self.data_logger = SummaryWriter(comment="BaselineModel")
         # self.data_logger.add_hparams({"lr": arguments.lr, "batch_size": arguments.batch_size})
         _, _, imgs = next(self.sample)
+        imgs = imgs.to(self.device)
         grid = torchvision.utils.make_grid(imgs)
         self.data_logger.add_image("images", grid)
         self.data_logger.add_graph(self.model, input_to_model=imgs)
@@ -62,7 +64,7 @@ class DetecTrainer(object):
 
             loss = 0
             for targets, boxes, images in self.sample:
-                images.to(self.device)
+                images = images.to(self.device)
                 self.optimizer.zero_grad()
                 # location: batch size x (#landmarks,4)
                 loc_pred, class_pred = self.model.forward(images.float())

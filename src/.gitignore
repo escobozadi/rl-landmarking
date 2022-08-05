@@ -2,3 +2,7 @@ data/models/test_models
 data/experiments
 runs
 /data/images/
+/data/
+/test-sync/
+/out.txt
+/tmp_video_cardiac/

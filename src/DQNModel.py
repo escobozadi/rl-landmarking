@@ -94,6 +94,7 @@ class CommNet(nn.Module):
                  number_actions=4, xavier=True, attention=False):
         super(CommNet, self).__init__()
         self.agents = agents    # number of landmarks
+        self.device = device
 
         # Pretrained Segmentation Model
         self.backbone = deeplabv3_mobilenet_v3_large(pretrained_backbone=True).backbone
@@ -113,7 +114,6 @@ class CommNet(nn.Module):
             self.agents_targets = landmarks
         self.num_actions = number_actions
         self.frame_history = frame_history
-        self.device = device
 
             # torch.device("cuda" if torch.cuda.is_available() else "cpu")
         if number_actions == 6: #3D

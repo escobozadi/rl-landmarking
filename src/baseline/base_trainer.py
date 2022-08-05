@@ -46,6 +46,7 @@ class DetecTrainer(object):
         grid = torchvision.utils.make_grid(imgs)
         self.data_logger.add_image("images", grid)
         self.data_logger.add_graph(self.model, input_to_model=imgs)
+        del imgs
         # self.data_logger.close()
 
         return

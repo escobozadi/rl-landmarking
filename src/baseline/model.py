@@ -2,9 +2,9 @@ import torch
 import cv2
 import os
 import torch.nn as nn
-from torchvision.models.segmentation import \
-    deeplabv3_mobilenet_v3_large
+from torchvision.models.segmentation import deeplabv3_mobilenet_v3_large, deeplabv3
 
+deeplabv3_mobilenet_v3_large()
 
 class BaselineModel(nn.Module):
 
@@ -15,15 +15,13 @@ class BaselineModel(nn.Module):
             "cuda:0" if torch.cuda.is_available() else "cpu")
 
         # Pretrained Segmentation Model
-        self.backbone = deeplabv3_mobilenet_v3_large(pretrained_backbone=True).backbone
+        self.backbone = deeplabv3_mobilenet_v3_large(pretrained_backbone=True)
+        self.backbone = self.backbone.backbone
         layer_count = 0
         for child in self.backbone.children():
             if layer_count <= 7:
                 for param in child.parameters():
                     param.requires_grad = False
-            else:
-                for param in child.parameters():
-                    param.requires_grad = True
             layer_count += 1
 
         self.backbone = nn.Sequential(*list(self.backbone.children())[:7]).to(self.device)
@@ -84,7 +82,8 @@ class BaselineModel(nn.Module):
     def forward(self, input):
         input1 = input / 255.0
 
-        x = self.backbone.forward(input1)
+        #x = self.backbone.forward(input1)
+        x = self.backbone(input1)
         x = self.conv0(x)
         x = self.prelu0(x)
         x = self.maxpool0(x)

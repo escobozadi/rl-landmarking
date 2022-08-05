@@ -4,6 +4,7 @@ import torch.nn as nn
 import numpy as np
 import warnings
 import torchvision.utils
+from datetime import timedelta
 
 from .model import BaselineModel
 from .data_loader import DataLoader
@@ -52,7 +53,7 @@ class DetecTrainer(object):
         return
 
     def train(self):
-        dicDist = {}
+
         epoch = 0
         start = time.time()
         for i in range(self.max_epochs):
@@ -60,25 +61,29 @@ class DetecTrainer(object):
             # Restart Generator
             self.traindata.restartfiles()
             self.sample = self.traindata.sample()
+            dicDist = {}
             for label in self.labels:
                 dicDist[str(label)] = np.array([])
 
             loss = 0
+            dis_tar_loss = torch.zeros((3,))
             for targets, boxes, images in self.sample:
                 images = images.to(self.device)
                 self.optimizer.zero_grad()
+
                 # location: batch size x (#landmarks,4)
                 loc_pred, class_pred = self.model.forward(images.float())
-
                 # Free up memory
                 del images
 
                 # Calculate loss
                 batch_loss = self.LossFunc(loc_pred, class_pred, boxes, targets)
+                # batch loss = batch-size x (locloss, iouloss, classloss)
                 batch_loss.backward(torch.ones_like(batch_loss))
-                loss += torch.mean(batch_loss)
                 self.optimizer.step()
 
+                loss += torch.mean(batch_loss).detach().item()
+                dis_tar_loss += torch.mean(batch_loss, 0)
                 dist = torch.norm(loc_pred[:, :, :2] - boxes[:, :, :2],
                                   dim=2).detach().numpy()
                 for k in dicDist.keys():
@@ -87,19 +92,34 @@ class DetecTrainer(object):
                 del loc_pred, class_pred, batch_loss
 
             epoch += 1
+            end = time.time()
+            if (epoch == 1) or (epoch % 100 == 0):
+                print("Time take for {} episodes: {}".format(epoch, timedelta(seconds=end-start)))
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", category=RuntimeWarning)
                 for k in dicDist.keys():
                     dicDist[k] = np.nanmean(dicDist[k])
+            dis_tar_loss = dis_tar_loss.detach().tolist()
 
-            print("Epoch {}, Loss: {}".format(epoch, loss))
-            for k in dicDist.keys():
-                dicDist[k] = np.nanmean(dicDist[k])
-                print("Training AvgDistance Agent {}: {}".format(k, dicDist[k]))
+            # Terminal
+            print("EPOCH ", epoch)
+            print("Training Total Loss: {}".format(round(loss, 6)))
+            print("Target Distance Loss: {}, Box IoU Loss: {}, Class Loss: {}".format(
+                epoch, round(dis_tar_loss[0], 6), round(dis_tar_loss[1], 6), round(dis_tar_loss[2], 6)))
+            print("Training AvgDistances:")
+            print("".join(["Agent " + str(k) + ": " + str(round(dicDist[k], 6)) + " || "
+                           for k in dicDist.keys()]), sep=" ")
 
-            self.data_logger.add_scalar("Train Loss", loss, epoch)
+            # Log Epoch Outputs
+            self.data_logger.add_scalar("Train Total Loss", loss, epoch)
+            self.data_logger.add_scalar("Train Distance Loss", dis_tar_loss[0], epoch)
+            self.data_logger.add_scalar("Train IoU Loss", dis_tar_loss[1], epoch)
+            self.data_logger.add_scalar("Train Class Loss", dis_tar_loss[2], epoch)
             self.data_logger.add_scalars("Train Avg Distance", dicDist, epoch)
+
+            # Validation Epoch
             self.validation()
+            del dis_tar_loss, dicDist
 
         torch.save(self.model.state_dict(), self.data_logger.get_logdir() + "/baseline_model.pt")
         self.data_logger.close()
@@ -114,14 +134,17 @@ class DetecTrainer(object):
         dicDist = {}
         for label in self.labels:
             dicDist[str(label)] = np.array([])
+
         loss = 0
+        dis_tar_loss = torch.zeros((3,))
         for targets, boxes, imgs in self.val_sample:
             imgs = imgs.to(self.device)
             loc_pred, class_pred = self.model.forward(imgs.float())
             loss_batch = self.LossFunc(loc_pred, class_pred, boxes, targets)
-            loss += torch.mean(loss_batch)
+            loss += torch.mean(loss_batch).detach().item()
             del imgs
 
+            dis_tar_loss += torch.mean(loss_batch, 0)
             dist = torch.norm(loc_pred[:, :, :2] - boxes[:, :, :2],
                               dim=2).detach().numpy()
             for i in dicDist.keys():
@@ -133,15 +156,28 @@ class DetecTrainer(object):
             warnings.simplefilter("ignore", category=RuntimeWarning)
             for k in dicDist.keys():
                 dicDist[k] = np.nanmean(dicDist[k])
+        dis_tar_loss = dis_tar_loss.detach().tolist()
 
-        self.data_logger.add_scalar("Val Loss", loss)
+        # Log Validation Results
+        self.data_logger.add_scalar("Val Total Loss", loss)
+        self.data_logger.add_scalar("Val Distance Loss", dis_tar_loss[0])
+        self.data_logger.add_scalar("Val IoU Loss", dis_tar_loss[1])
+        self.data_logger.add_scalar("Val Class Loss", dis_tar_loss[2])
         self.data_logger.add_scalars("Val Avg Distance", dicDist)
+
+        # Save Model With Best Validation Performance
         if loss <= self.best_val:
             print("Validation Improved!")
             torch.save(self.model.state_dict(), self.data_logger.get_logdir() + "best_model.pt")
             self.best_val = loss
-        print("Validation Epoch, Loss: {}".format(loss))
-        print("Validation AvgDistance: ", dicDist)
+
+        print("Validation Epoch, Total Loss: {}".format(round(loss, 6)))
+        print("Target Distance Loss: {}, Box IoU Loss: {}, Class Loss: {}".format(
+            round(dis_tar_loss[0], 6), round(dis_tar_loss[1], 6), round(dis_tar_loss[2], 6)))
+        print("Validation AvgDistances:")
+        print("".join(["Agent " + str(k) + ": " + str(round(dicDist[k], 6)) + " || "
+                       for k in dicDist.keys()]), sep=" ")
+        del dicDist, dist
         return
 
 
@@ -187,7 +223,8 @@ class BaselineLoss(nn.Module):
         locloss = disloss(torch.nan_to_num(boxes[:, :, :2]), boxpred[:, :, :2])
         locloss = torch.mean(locloss * idx, 1)
 
-        batch_loss = torch.transpose(torch.stack((iouloss+locloss, classloss)), 0, 1)
+        # batch_loss = torch.transpose(torch.stack((iouloss+locloss, classloss)), 0, 1)
+        batch_loss = torch.transpose(torch.stack((locloss, iouloss, classloss)), 0, 1)
         return Variable(batch_loss, requires_grad=True)
 
 

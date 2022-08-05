@@ -69,6 +69,9 @@ class DetecTrainer(object):
                 # location: batch size x (#landmarks,4)
                 loc_pred, class_pred = self.model.forward(images.float())
 
+                # Free up memory
+                del images
+
                 # Calculate loss
                 batch_loss = self.LossFunc(loc_pred, class_pred, boxes, targets)
                 batch_loss.backward(torch.ones_like(batch_loss))
@@ -77,8 +80,8 @@ class DetecTrainer(object):
 
                 dist = torch.norm(loc_pred[:, :, :2] - boxes[:, :, :2],
                                   dim=2).detach().numpy()
-                for i in dicDist.keys():
-                    dicDist[i] = np.append(dicDist[i], dist[:, int(i)])
+                for k in dicDist.keys():
+                    dicDist[k] = np.append(dicDist[k], dist[:, int(k)])
 
             epoch += 1
             with warnings.catch_warnings():

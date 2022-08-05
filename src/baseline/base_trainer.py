@@ -83,6 +83,8 @@ class DetecTrainer(object):
                 for k in dicDist.keys():
                     dicDist[k] = np.append(dicDist[k], dist[:, int(k)])
 
+                del loc_pred, class_pred, batch_loss
+
             epoch += 1
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", category=RuntimeWarning)
@@ -113,14 +115,18 @@ class DetecTrainer(object):
             dicDist[str(label)] = np.array([])
         loss = 0
         for targets, boxes, imgs in self.val_sample:
+            imgs = imgs.to(self.device)
             loc_pred, class_pred = self.model.forward(imgs.float())
             loss_batch = self.LossFunc(loc_pred, class_pred, boxes, targets)
             loss += torch.mean(loss_batch)
+            del imgs
 
             dist = torch.norm(loc_pred[:, :, :2] - boxes[:, :, :2],
                               dim=2).detach().numpy()
             for i in dicDist.keys():
                 dicDist[i] = np.append(dicDist[i], dist[:, int(i)])
+
+            del loc_pred, class_pred, loss_batch
 
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", category=RuntimeWarning)

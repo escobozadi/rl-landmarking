@@ -14,10 +14,12 @@ from torch.utils.tensorboard import SummaryWriter
 
 class DetecTrainer(object):
     def __init__(self, arguments, label_ids, useparallel=False):
+        # Hyperparameters
         self.batch_size = arguments.batch_size
         self.labels = label_ids
         self.max_epochs = arguments.max_episodes
-        # Data Sampler
+
+        # Data Samplers
         self.traindata = DataLoader(arguments.files, landmarks=len(label_ids),
                                     batch_size=arguments.batch_size)
         self.sample = self.traindata.sample()
@@ -32,8 +34,10 @@ class DetecTrainer(object):
         if useparallel:
             if torch.cuda.device_count() > 1:
                 print("{} GPUs Available for Training".format(torch.cuda.device_count()))
-                self.q_network = nn.DataParallel(self.model)
+                self.model = nn.DataParallel(self.model)
         self.model.to(self.device)
+
+        # Loss Function and Optimizer
         self.LossFunc = BaselineLoss()
         parameters = filter(lambda p: p.requires_grad, self.model.parameters())
         self.optimizer = torch.optim.Adam(parameters, lr=arguments.lr)
@@ -71,41 +75,41 @@ class DetecTrainer(object):
                 images = images.to(self.device)
                 self.optimizer.zero_grad()
 
-                # location: batch size x (#landmarks,4)
+                # Model Predictions and Loss Calculation
                 loc_pred, class_pred = self.model.forward(images.float())
-                # Free up memory
-                del images
-
-                # Calculate loss
+                loc_pred, class_pred = loc_pred.cpu(), class_pred.cpu()
                 batch_loss = self.LossFunc(loc_pred, class_pred, boxes, targets)
-                # batch loss = batch-size x (locloss, iouloss, classloss)
                 batch_loss.backward(torch.ones_like(batch_loss))
                 self.optimizer.step()
 
+                # Results saving
                 loss += torch.mean(batch_loss).detach().item()
-                dis_tar_loss += torch.mean(batch_loss, 0)
+                dis_tar_loss += torch.mean(batch_loss, 0).detach()
                 dist = torch.norm(loc_pred[:, :, :2] - boxes[:, :, :2],
                                   dim=2).detach().numpy()
                 for k in dicDist.keys():
                     dicDist[k] = np.append(dicDist[k], dist[:, int(k)])
 
-                del loc_pred, class_pred, batch_loss
+                # Free up memory
+                del images, loc_pred, class_pred, batch_loss
 
             epoch += 1
             end = time.time()
             if (epoch == 1) or (epoch % 100 == 0):
-                print("Time take for {} episodes: {}".format(epoch, timedelta(seconds=end-start)))
+                print("Time Taken For {} Epoch: {}".format(epoch, timedelta(seconds=end-start)))
+
+            # Epoch Results
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", category=RuntimeWarning)
                 for k in dicDist.keys():
                     dicDist[k] = np.nanmean(dicDist[k])
-            dis_tar_loss = dis_tar_loss.detach().tolist()
+            dis_tar_loss = dis_tar_loss.tolist()
 
-            # Terminal
+            # Print Results to Terminal
             print("EPOCH ", epoch)
             print("Training Total Loss: {}".format(round(loss, 6)))
             print("Target Distance Loss: {}, Box IoU Loss: {}, Class Loss: {}".format(
-                epoch, round(dis_tar_loss[0], 6), round(dis_tar_loss[1], 6), round(dis_tar_loss[2], 6)))
+                round(dis_tar_loss[0], 6), round(dis_tar_loss[1], 6), round(dis_tar_loss[2], 6)))
             print("Training AvgDistances:")
             print("".join(["Agent " + str(k) + ": " + str(round(dicDist[k], 6)) + " || "
                            for k in dicDist.keys()]), sep=" ")
@@ -121,6 +125,7 @@ class DetecTrainer(object):
             self.validation()
             del dis_tar_loss, dicDist
 
+        # Save Final Model
         torch.save(self.model.state_dict(), self.data_logger.get_logdir() + "/baseline_model.pt")
         self.data_logger.close()
         return
@@ -139,24 +144,29 @@ class DetecTrainer(object):
         dis_tar_loss = torch.zeros((3,))
         for targets, boxes, imgs in self.val_sample:
             imgs = imgs.to(self.device)
+
+            # Model Predictions and Loss Calculation
             loc_pred, class_pred = self.model.forward(imgs.float())
+            loc_pred, class_pred = loc_pred.cpu(), class_pred.cpu()
             loss_batch = self.LossFunc(loc_pred, class_pred, boxes, targets)
             loss += torch.mean(loss_batch).detach().item()
-            del imgs
 
-            dis_tar_loss += torch.mean(loss_batch, 0)
+            # Batch Loss: Batch size x (Distance Loss, IoU Loss, Class Loss)
+            dis_tar_loss += torch.mean(loss_batch, 0).detach()
             dist = torch.norm(loc_pred[:, :, :2] - boxes[:, :, :2],
                               dim=2).detach().numpy()
             for i in dicDist.keys():
                 dicDist[i] = np.append(dicDist[i], dist[:, int(i)])
 
-            del loc_pred, class_pred, loss_batch
+            # Clear Memory Space
+            del imgs, loc_pred, class_pred, loss_batch
 
+        # Validation Epoch Results
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", category=RuntimeWarning)
             for k in dicDist.keys():
                 dicDist[k] = np.nanmean(dicDist[k])
-        dis_tar_loss = dis_tar_loss.detach().tolist()
+        dis_tar_loss = dis_tar_loss.tolist()
 
         # Log Validation Results
         self.data_logger.add_scalar("Val Total Loss", loss)
@@ -168,9 +178,10 @@ class DetecTrainer(object):
         # Save Model With Best Validation Performance
         if loss <= self.best_val:
             print("Validation Improved!")
-            torch.save(self.model.state_dict(), self.data_logger.get_logdir() + "best_model.pt")
+            torch.save(self.model.state_dict(), self.data_logger.get_logdir() + "/best_model.pt")
             self.best_val = loss
 
+        # Print Results to Terminal
         print("Validation Epoch, Total Loss: {}".format(round(loss, 6)))
         print("Target Distance Loss: {}, Box IoU Loss: {}, Class Loss: {}".format(
             round(dis_tar_loss[0], 6), round(dis_tar_loss[1], 6), round(dis_tar_loss[2], 6)))
@@ -232,6 +243,9 @@ class Evaluate(object):
     def __init__(self):
         pass
 
+
+#######################################################################################################################
+# Ignore; Experimenting with Code
 
 class Args(object):
     def __init__(self):

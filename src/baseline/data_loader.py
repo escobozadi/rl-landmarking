@@ -36,9 +36,10 @@ class DataLoader(object):
         6  triceps tendon insertion
         7  humerus
         """
+        # (# labels, x, y, height, width)
         landmarks = np.zeros((self.landmarks, 4))
         landmarks[:] = np.nan
-        # classes = np.zeros((self.landmarks, ))
+
         classes = [0 for i in range(self.landmarks)]
         with open(file) as t:
             lines = [x.strip() for x in list(t) if x]
@@ -47,7 +48,6 @@ class DataLoader(object):
                 id = int(info[0])
                 landmarks[id, :] = info[1:]
 
-        # landmarks = np.asarray(landmarks)  # (# labels, x, y, height, width)
         targets = np.argwhere(~np.isnan(landmarks[:, 0])).reshape([-1, ])
         for i in range(self.landmarks):
             if i in targets:
@@ -55,14 +55,16 @@ class DataLoader(object):
         return landmarks.tolist(), classes
 
     def decode(self, filename):
+        # Read Image and Get to Right Size
         np_image = cv2.imread(filename)
         if np_image is None:
             print("Empty Image")
             print(filename)
+        # Max size image = 786 x 1136 x 3
         np_image = cv2.copyMakeBorder(np_image, 0, 786 - np_image.shape[0],
                                       0, 1136 - np_image.shape[1], cv2.BORDER_CONSTANT)
         np_image = np_image.transpose(2, 0, 1)  # (channels, x, y)
-        return np_image
+        return np_image.tolist()
 
     @property
     def num_files(self):

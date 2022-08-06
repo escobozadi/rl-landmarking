@@ -298,7 +298,7 @@ class DQN:
     # The class initialisation function.
     def __init__(self, agents, frame_history, logger, number_actions=4, merge_layers=True,
             type="Network3d", collective_rewards=False, attention=False,
-            lr=1e-3, scheduler_gamma=0.9, scheduler_step_size=100, ids=None, entropy_reg=0.001):
+            lr=1e-3, scheduler_gamma=0.9, scheduler_step_size=100, ids=None, entropy_reg=0.001, parallelTrain=False):
 
         # ids: [0 0 1 1 2 3 4 5 6 7 8] agents with their respective label target
         if merge_layers:
@@ -336,10 +336,11 @@ class DQN:
                 device=self.device,
                 number_actions=number_actions,
                 attention=attention)  # .to(self.device)
-        # if torch.cuda.device_count() > 1:
-        #     print("{} GPUs Available for Training".format(torch.cuda.device_count()))
-        #     self.q_network = nn.DataParallel(self.q_network)
-        #     self.target_network = nn.DataParallel(self.target_network)
+        if parallelTrain:
+            if torch.cuda.device_count() > 1:
+                print("{} GPUs Available for Training".format(torch.cuda.device_count()))
+                self.q_network = nn.DataParallel(self.q_network)
+                self.target_network = nn.DataParallel(self.target_network)
         self.q_network.to(self.device)
         self.target_network.to(self.device)
 

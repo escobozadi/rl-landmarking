@@ -1,7 +1,7 @@
 import torch
 import cv2
-import os
 import torch.nn as nn
+from torch.cuda.amp import autocast
 from torchvision.models.segmentation import deeplabv3_mobilenet_v3_large
 
 
@@ -78,9 +78,10 @@ class BaselineModel(nn.Module):
 
         return
 
+    @autocast()
     def forward(self, input):
 
-        x = self.backbone(input / 255.0)
+        x = self.backbone(input)
         x = self.conv0(x)
         x = self.prelu0(x)
         x = self.maxpool0(x)
@@ -111,36 +112,41 @@ class BaselineModel(nn.Module):
 
 
 if __name__ == '__main__':
-    model = BaselineModel()
+    # model = BaselineModel()
+    import numpy as np
     path = "/Users/dianaescoboza/Documents/PycharmProjects/rl-landmark/rl-medical/src/data/images/0a0a5d3d-m527_a528_st533_se536_i21457_1_46_US_.png"
 
     image = cv2.imread(path)  # .transpose(2, 0, 1)
     x = round(0.4073333333333333 * image.shape[1])
     y = round(0.6685823754789273 * image.shape[0])
     image = cv2.copyMakeBorder(image, 0, 786 - image.shape[0], 0, 1136 - image.shape[1], cv2.BORDER_CONSTANT)
-    image = image.transpose(2, 0, 1)
-    image = torch.from_numpy(image).float() / 255
-    out, c = model.forward(image.unsqueeze(0))
-
-    cv2.circle(image, (x, y), radius=5, color=255, thickness=-1)
-    cv2.imshow("image", image)
+    # image = image.transpose(2, 0, 1)
+    # image = torch.from_numpy(image).float() / 255
+    # out, c = model.forward(image.unsqueeze(0))
+    size = image.shape
+    image = image / 255
+    noise_img = image + np.random.rand(size[0], size[1], size[2]) * 0.5
+    # cv2.circle(image, (x, y), radius=5, color=255, thickness=-1)
+    imagescat = np.concatenate((image, noise_img), axis=1)
+    cv2.imshow("image and noisy-image", imagescat)
+    # cv2.imshow("image", image)
     cv2.waitKey(0)
 
-    width = 0
-    height = 0
-    max_width = []
-    max_height = []
-    files = [f for f in os.listdir(path) if not f.startswith('.')]
-    for image in files:
-        im = cv2.imread(path + image)
-        size = im.shape
-        if size[0] > width:
-            width = size[0]
-            max_width = size
-        if size[1] > height:
-            height = size[1]
-            max_height = size
-    # images max size:
+    # width = 0
+    # height = 0
+    # max_width = []
+    # max_height = []
+    # files = [f for f in os.listdir(path) if not f.startswith('.')]
+    # for image in files:
+    #     im = cv2.imread(path + image)
+    #     size = im.shape
+    #     if size[0] > width:
+    #         width = size[0]
+    #         max_width = size
+    #     if size[1] > height:
+    #         height = size[1]
+    #         max_height = size
+    # # images max size:
     # (786, 1136, 3)
     # Old model
     # output1 = []

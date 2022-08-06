@@ -63,7 +63,7 @@ def get_args(parser):
     parser.add_argument(
         '--model',
         help='''model to train or evaluate"''',
-        choices=['rl', 'baseline'], default='rl')
+        choices=['rl', 'baseline', 'semi'], default='rl')
     parser.add_argument(
         '--load',
         help='Path to the model to load')
@@ -297,7 +297,7 @@ if __name__ == '__main__':
 
     if args.model == 'rl':
         main(args)
-    elif args.model == 'baseline':
-        train = DetecTrainer(args, args.landmarks).train()
+    else:
+        train = DetecTrainer(args, args.landmarks, args.model).train()
 
 

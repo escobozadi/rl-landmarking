@@ -4,10 +4,14 @@ import torch
 
 
 class DataLoader(object):
-    def __init__(self, files_list, landmarks=8, batch_size=1, returnLandmarks=True):
+    def __init__(self, files_list, landmarks=8, batch_size=1, learning="base", returnLandmarks=True):
         assert files_list, 'There is no files given'
 
         self.batch_size = batch_size
+        self.semi = False
+        if learning == "semi":
+            self.batch_size = int(self.batch_size / 2)
+            self.semi = True
         self.landmarks = landmarks
         self.returnLandmarks = returnLandmarks
         self.image_files = [line.split('\n')[0]
@@ -15,17 +19,14 @@ class DataLoader(object):
         if self.returnLandmarks:
             self.landmark_files = [line.split('\n')[0]
                                    for line in open(files_list[1].name)]
-        # self.image_files = [line.split('\n')[0]
-        #                     for line in open(files_list[0])]
-        # self.landmark_files = [line.split('\n')[0]
-        #                        for line in open(files_list[1])]
 
-        self.files_idxes = np.arange(len(self.image_files))
+        self.files_idxes = None
+        self.batchidx = None
         self.restartfiles()
         assert len(self.image_files) == len(self.landmark_files), """number of image files is not equal to
                     number of landmark files"""
 
-    def getLandmarksFromTXTFile(self, file, split=' '):
+    def getLandmarks(self, file, split=' '):
         """
         0  femur
         1  patella
@@ -54,7 +55,7 @@ class DataLoader(object):
                 classes[i] = 1
         return landmarks.tolist(), classes
 
-    def decode(self, filename):
+    def getImage(self, filename):
         # Read Image and Get to Right Size
         np_image = cv2.imread(filename)
         if np_image is None:
@@ -63,8 +64,15 @@ class DataLoader(object):
         # Max size image = 786 x 1136 x 3
         np_image = cv2.copyMakeBorder(np_image, 0, 786 - np_image.shape[0],
                                       0, 1136 - np_image.shape[1], cv2.BORDER_CONSTANT)
+        np_image = np_image / 255.0
         np_image = np_image.transpose(2, 0, 1)  # (channels, x, y)
         return np_image.tolist()
+
+    def getNoisyImage(self, image):
+        noisy_image = np.asarray(image)
+        size = noisy_image.shape
+        noisy_image = noisy_image + np.random.rand(size[0], size[1], size[2]) * 0.5
+        return noisy_image.tolist()
 
     @property
     def num_files(self):
@@ -89,13 +97,24 @@ class DataLoader(object):
             for i in batch:
                 imagefile = self.image_files[i]
                 landmarkfile = self.landmark_files[i]
-                image = self.decode(imagefile)
-                landmark, target = self.getLandmarksFromTXTFile(landmarkfile)
+                image = self.getImage(imagefile)
+                landmark, target = self.getLandmarks(landmarkfile)
                 images.append(image)
                 landmarks.append(landmark)
                 targets.append(target)
+
+                # Noisy Images for Semi Supervised
+                if self.semi:
+                    noisy_img = self.getNoisyImage(image)
+                    noisy_land = np.zeros((self.landmarks, 4)).tolist()
+                    noisy_targ = [0 for i in range(self.landmarks)]
+                    images.append(noisy_img)
+                    landmarks.append(noisy_land)
+                    targets.append(noisy_targ)
+
             targets = torch.as_tensor(targets)
             landmarks = torch.as_tensor(landmarks)
             images = torch.as_tensor(np.asarray(images))
             yield targets, landmarks, images
+
 

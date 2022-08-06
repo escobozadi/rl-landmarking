@@ -206,8 +206,8 @@ class CommNet(nn.Module):
         # Agents for forward & back propagation [1,2,5]
         """
         self.InitInputs(input.shape[0])
-        input1 = input.to(self.device) / 255.0
-        # input1 = input / 255.0
+        # input1 = input.to(self.device) / 255.0
+        input1 = input / 255.0
 
         if agents_training is None:     # all agents training/val
             agents = np.arange(len(self.agents_targets))
@@ -285,7 +285,6 @@ class CommNet(nn.Module):
             # output.append(x)
         # output = torch.stack(output, dim=1)
 
-        self.output = self.output.cpu()
         return self.output[:, agents]
 
     def InitInputs(self, batch):
@@ -408,15 +407,17 @@ class DQN:
 
         # Forward only on the agents training
         # next_state = next_state.to(self.device)
-        y = self.target_network.forward(next_state, targets)
+        y = self.target_network.forward(next_state.to(self.device), targets.to(self.device))
+        y = y.cpu()
         y = y.view(-1, len(targets), self.number_actions)
 
         # Get the maximum prediction for the next state from the target network
         max_target_net = y.max(-1)[0]
 
         # dim (batch_size, agents, number_actions)
-        network_prediction = self.q_network.forward(curr_state, targets).view(
+        network_prediction = self.q_network.forward(curr_state.to(self.device), targets.to(self.device)).view(
             -1, len(targets), self.number_actions)
+        network_prediction = network_prediction.cpu()
         isNotOver = (torch.ones(*terminal.shape) - terminal)
 
         # Bellman equation, discount_factor=gamma

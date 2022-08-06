@@ -13,7 +13,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 
 class DetecTrainer(object):
-    def __init__(self, arguments, label_ids, useparallel=False):
+    def __init__(self, arguments, label_ids, useparallel=True):
         # Hyperparameters
         self.batch_size = arguments.batch_size
         self.labels = label_ids
@@ -44,14 +44,15 @@ class DetecTrainer(object):
         self.best_val = float('inf')
 
         # Logger
-        self.data_logger = SummaryWriter(comment="BaselineModel")
-        # self.data_logger.add_hparams({"lr": arguments.lr, "batch_size": arguments.batch_size})
-        _, _, imgs = next(self.sample)
-        imgs = imgs.to(self.device)
-        grid = torchvision.utils.make_grid(imgs)
-        self.data_logger.add_image("images", grid)
-        self.data_logger.add_graph(self.model, input_to_model=imgs)
-        del imgs
+        self.data_logger = SummaryWriter(comment=arguments.log_comment)
+        self.logs = open(self.data_logger.get_logdir() + "/logs.txt", "w")
+        # # self.data_logger.add_hparams({"lr": arguments.lr, "batch_size": arguments.batch_size})
+        # _, _, imgs = next(self.sample)
+        # imgs = imgs.to(self.device)
+        # grid = torchvision.utils.make_grid(imgs)
+        # self.data_logger.add_image("images", grid)
+        # self.data_logger.add_graph(self.model, input_to_model=imgs)
+        # del imgs
         # self.data_logger.close()
 
         return
@@ -97,6 +98,7 @@ class DetecTrainer(object):
             end = time.time()
             if (epoch == 1) or (epoch % 100 == 0):
                 print("Time Taken For {} Epoch: {}".format(epoch, timedelta(seconds=end-start)))
+                self.logs.write("Time Taken For {} Epoch: {}".format(epoch, timedelta(seconds=end-start)) + '\n')
 
             # Epoch Results
             with warnings.catch_warnings():
@@ -105,24 +107,11 @@ class DetecTrainer(object):
                     dicDist[k] = np.nanmean(dicDist[k])
             dis_tar_loss = dis_tar_loss.tolist()
 
-            # Print Results to Terminal
-            print("EPOCH ", epoch)
-            print("Training Total Loss: {}".format(round(loss, 6)))
-            print("Target Distance Loss: {}, Box IoU Loss: {}, Class Loss: {}".format(
-                round(dis_tar_loss[0], 6), round(dis_tar_loss[1], 6), round(dis_tar_loss[2], 6)))
-            print("Training AvgDistances:")
-            print("".join(["Agent " + str(k) + ": " + str(round(dicDist[k], 6)) + " || "
-                           for k in dicDist.keys()]), sep=" ")
-
             # Log Epoch Outputs
-            self.data_logger.add_scalar("Train Total Loss", loss, epoch)
-            self.data_logger.add_scalar("Train Distance Loss", dis_tar_loss[0], epoch)
-            self.data_logger.add_scalar("Train IoU Loss", dis_tar_loss[1], epoch)
-            self.data_logger.add_scalar("Train Class Loss", dis_tar_loss[2], epoch)
-            self.data_logger.add_scalars("Train Avg Distance", dicDist, epoch)
+            self.save_logs(dis_tar_loss, loss, dicDist, epoch)
 
             # Validation Epoch
-            self.validation()
+            self.validation(epoch)
             del dis_tar_loss, dicDist
 
         # Save Final Model
@@ -130,7 +119,7 @@ class DetecTrainer(object):
         self.data_logger.close()
         return
 
-    def validation(self):
+    def validation(self, epoch):
         self.model.train(False)
         # Restart Generator
         self.valdata.restartfiles()
@@ -169,26 +158,40 @@ class DetecTrainer(object):
         dis_tar_loss = dis_tar_loss.tolist()
 
         # Log Validation Results
-        self.data_logger.add_scalar("Val Total Loss", loss)
-        self.data_logger.add_scalar("Val Distance Loss", dis_tar_loss[0])
-        self.data_logger.add_scalar("Val IoU Loss", dis_tar_loss[1])
-        self.data_logger.add_scalar("Val Class Loss", dis_tar_loss[2])
-        self.data_logger.add_scalars("Val Avg Distance", dicDist)
+        self.save_logs(dis_tar_loss, loss, dicDist, epoch, "Validation")
 
         # Save Model With Best Validation Performance
         if loss <= self.best_val:
             print("Validation Improved!")
+            self.logs.write("Validation Improved!" + '\n')
             torch.save(self.model.state_dict(), self.data_logger.get_logdir() + "/best_model.pt")
             self.best_val = loss
 
-        # Print Results to Terminal
-        print("Validation Epoch, Total Loss: {}".format(round(loss, 6)))
-        print("Target Distance Loss: {}, Box IoU Loss: {}, Class Loss: {}".format(
-            round(dis_tar_loss[0], 6), round(dis_tar_loss[1], 6), round(dis_tar_loss[2], 6)))
-        print("Validation AvgDistances:")
-        print("".join(["Agent " + str(k) + ": " + str(round(dicDist[k], 6)) + " || "
-                       for k in dicDist.keys()]), sep=" ")
         del dicDist, dist
+        return
+
+    def save_logs(self, losses_dic, total_loss, agent_dist, epoch, task="Train"):
+
+        self.data_logger.add_scalar(task + " Total Loss", total_loss, epoch)
+        self.data_logger.add_scalar(task + " Distance Loss", losses_dic[0], epoch)
+        self.data_logger.add_scalar(task + " IoU Loss", losses_dic[1], epoch)
+        self.data_logger.add_scalar(task + " Class Loss", losses_dic[2], epoch)
+        self.data_logger.add_scalars(task + " Avg Distance", agent_dist, epoch)
+
+        print("EPOCH ", epoch)
+        self.logs.write("EPOCH " + str(epoch) + '\n')
+        print(task + " Total Loss: {}".format(round(total_loss, 6)))
+        self.logs.write(task + " Total Loss: {}".format(round(total_loss, 6)) + '\n')
+        print("Target Distance Loss: {}, Box IoU Loss: {}, Class Loss: {}".format(
+            round(losses_dic[0], 6), round(losses_dic[1], 6), round(losses_dic[2], 6)))
+        self.logs.write("Target Distance Loss: {}, Box IoU Loss: {}, Class Loss: {}".format(
+            round(losses_dic[0], 6), round(losses_dic[1], 6), round(losses_dic[2], 6)) + '\n')
+        print(task + " AvgDistances:")
+        self.logs.write(task + " AvgDistances:" + '\n')
+        print("".join(["Agent " + str(k) + ": " + str(round(agent_dist[k], 6)) + " || "
+                       for k in agent_dist.keys()]), sep=" ")
+        self.logs.write("".join(["Agent " + str(k) + ": " + str(round(agent_dist[k], 6)) + " || "
+                                 for k in agent_dist.keys()]) + "  " + '\n')
         return
 
 

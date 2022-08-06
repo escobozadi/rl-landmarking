@@ -10,6 +10,8 @@ class Evaluator(object):
         self.logger = logger
         self.agents = agents
         self.max_steps = max_steps
+        self.device = torch.device(
+            "cuda:0" if torch.cuda.is_available() else "cpu")
 
     def play_n_episodes(self, render=False, fixed_spawn=None, silent=False):
         """
@@ -78,7 +80,8 @@ class Evaluator(object):
             """
             # from (agent, imagex, imagey, framehist) -> (agent, framehist, imagex, imagey)
             inputs = torch.tensor(obs_stack).permute(0, 3, 1, 2).unsqueeze(0)
-            q_vals = self.model.forward(inputs).detach().squeeze(0)
+            q_vals = self.model.forward(inputs.to(self.device)).detach().squeeze(0)
+            q_vals = q_vals.cpu()
             idx = torch.max(q_vals, -1)[1]
             greedy_steps = np.array(idx, dtype=np.int32).flatten()
             return greedy_steps, q_vals.data.numpy()

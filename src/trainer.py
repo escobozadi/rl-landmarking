@@ -86,6 +86,10 @@ class Trainer(object):
                     mini_batch = self.buffer.sample(self.batch_size, agents_training)  #
                     loss = self.dqn.train_q_network(mini_batch, self.gamma, agents_training)
                     losses.append(loss)
+
+                    # Clear up some memory
+                    del mini_batch
+
                 if all(t for t in terminal):
                     break
             epoch_distances.append([info['distError_' + str(i)]

@@ -1,3 +1,5 @@
+import copy
+
 import cv2
 import numpy as np
 import torch
@@ -20,7 +22,7 @@ class DataLoader(object):
             self.landmark_files = [line.split('\n')[0]
                                    for line in open(files_list[1].name)]
 
-        self.files_idxes = None
+        self.files_idxes = np.arange(self.num_files)
         self.batchidx = None
         self.restartfiles()
         assert len(self.image_files) == len(self.landmark_files), """number of image files is not equal to
@@ -69,7 +71,7 @@ class DataLoader(object):
         return np_image.tolist()
 
     def getNoisyImage(self, image):
-        noisy_image = np.asarray(image)
+        noisy_image = np.asarray(copy.deepcopy(image))
         size = noisy_image.shape
         noisy_image = noisy_image + np.random.rand(size[0], size[1], size[2]) * 0.5
         return noisy_image.tolist()

@@ -70,6 +70,7 @@ class DetecTrainer(object):
             self.model.train(True)
             # Restart Generator
             self.traindata.restartfiles()
+            self.sample = self.traindata.sample()
 
             dicDist = {}
             for label in self.labels:
@@ -90,8 +91,8 @@ class DetecTrainer(object):
                 else:
                     batch_loss = self.LossFunc.boxing_loss(loc_pred, class_pred, boxes, targets)
                 batch_loss.backward(torch.ones_like(batch_loss))
-                # Optimizer step every other epoch
-                if (n+1) % 2 == 0 or (n+1) == len(self.traindata.batchidx):
+                if (n+1) % 2 == 0 or (n+1) == self.traindata.num_files:
+                    # Optimizer step every other epoch
                     self.optimizer.step()
                     self.optimizer.zero_grad(set_to_none=True)
 
@@ -218,6 +219,7 @@ class BaselineLoss(nn.Module):
 
     def boxing_loss(self, boxpred, classpred, boxes, labels):
         idx = (labels == 1)
+        # boxes = torch.nan_to_num(boxes)
         # Boxes: (x, y, height, width)
         # Class Loss
         pred = ((classpred > 0.5) * 1).double()
@@ -268,6 +270,7 @@ class BaselineLoss(nn.Module):
         # Unlabel loss with labeled data as target
         unlabel_loss = self.boxing_loss(boxpred[unlabelidx], classpred[unlabelidx],
                                         boxpred[labelidx], classpred[labelidx])
+
         batchloss = torch.mean(torch.cat((label_loss, unlabel_loss)), 0)
         return batchloss
 

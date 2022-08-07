@@ -4,7 +4,7 @@ import torch
 
 
 class DataLoader(object):
-    def __init__(self, files_list, landmarks=8, batch_size=1, learning="base", returnLandmarks=True):
+    def __init__(self, files_list, landmarks=8, batch_size=2, learning="base", returnLandmarks=True):
         assert files_list, 'There is no files given'
 
         self.batch_size = batch_size
@@ -89,6 +89,26 @@ class DataLoader(object):
             self.batchidx.append(batch)
         return
 
+    def mixSample(self, images, landmarks, classes):
+        unlabelidx = [(2*i)+1 for i in range(int(len(classes)/2))]
+        labelidx = [(2*i) for i in range(int(len(classes)/2))]
+
+        # shuffle data idx
+        idxes = np.arange(len(classes))
+        np.random.shuffle(idxes)
+        newunlabel = [np.where(idxes == n)[0].item() for n in unlabelidx]
+        newlabel = [np.where(idxes == n)[0].item() for n in labelidx]
+        # shuffle batch
+        images = np.asarray(images)[idxes]
+        landmarks = np.asarray(landmarks)[idxes]
+        classes = np.asarray(classes)[idxes]
+
+        for i in range(len(newunlabel)):
+            # keep track of the image the noisy image comes from
+            classes[newunlabel[i]] = newlabel[i]
+
+        return images.tolist(), landmarks.tolist(), classes.tolist()
+
     def sample(self):
         for batch in self.batchidx:
             images = []
@@ -111,7 +131,8 @@ class DataLoader(object):
                     images.append(noisy_img)
                     landmarks.append(noisy_land)
                     targets.append(noisy_targ)
-
+            if self.semi:
+                images, landmarks, targets = self.mixSample(images, landmarks, targets)
             targets = torch.as_tensor(targets)
             landmarks = torch.as_tensor(landmarks)
             images = torch.as_tensor(np.asarray(images))

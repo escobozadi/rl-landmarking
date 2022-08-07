@@ -13,25 +13,22 @@ from torch.utils.tensorboard import SummaryWriter
 
 
 class DetecTrainer(object):
-    def __init__(self, arguments, label_ids, setting="baseline", useparallel=True):
+    def __init__(self, arguments, label_ids, setting="baseline", useparallel=False):
         # Hyperparameters
-        self.batch_size = arguments.batch_size
+        self.batch_size = arguments.batch_size  # must be multiple of 2 for semi-supervised
         self.labels = label_ids
         self.max_epochs = arguments.max_episodes
+        self.semi = False
 
         # Data Samplers
-        if setting == "semi":
-            # For semi-supervised learning
-            self.traindata = DataLoader(arguments.files, landmarks=len(label_ids),
-                                        batch_size=arguments.batch_size, learning="semi")
-            self.valdata = DataLoader(arguments.val_files, learning="semi")
-            self.semi = True
-        else:
-            self.traindata = DataLoader(arguments.files, landmarks=len(label_ids),
-                                        batch_size=arguments.batch_size)
-            self.valdata = DataLoader(arguments.val_files)
+        self.traindata = DataLoader(arguments.files, landmarks=len(label_ids),
+                                    batch_size=arguments.batch_size, learning=setting)
+        self.valdata = DataLoader(arguments.val_files, learning=setting)
         self.sample = self.traindata.sample()
         self.val_sample = self.valdata.sample()
+        if setting == "semi":
+            # For semi-supervised learning
+            self.semi = True
 
         # Model
         self.model = BaselineModel()
@@ -73,7 +70,7 @@ class DetecTrainer(object):
             self.model.train(True)
             # Restart Generator
             self.traindata.restartfiles()
-            self.sample = self.traindata.sample()
+
             dicDist = {}
             for label in self.labels:
                 dicDist[str(label)] = np.array([])
@@ -93,6 +90,7 @@ class DetecTrainer(object):
                 else:
                     batch_loss = self.LossFunc.boxing_loss(loc_pred, class_pred, boxes, targets)
                 batch_loss.backward(torch.ones_like(batch_loss))
+                # Optimizer step every other epoch
                 if (n+1) % 2 == 0 or (n+1) == len(self.traindata.batchidx):
                     self.optimizer.step()
                     self.optimizer.zero_grad(set_to_none=True)
@@ -216,7 +214,7 @@ class BaselineLoss(nn.Module):
         super(BaselineLoss, self).__init__()
         self.disloss = nn.L1Loss()
         self.lossfunc = nn.BCEWithLogitsLoss(reduce=False)
-        self.mse = nn.MSELoss()
+        self.mse = nn.MSELoss(reduce=False)
 
     def boxing_loss(self, boxpred, classpred, boxes, labels):
         idx = (labels == 1)
@@ -247,7 +245,6 @@ class BaselineLoss(nn.Module):
         iouloss = interArea / (areaBoxes+areaPred-interArea)
         iouloss = torch.nanmean(iouloss, 1)
 
-
         # Location Loss
         locloss = self.disloss(torch.nan_to_num(boxes[:, :, :2]), boxpred[:, :, :2])
         locloss = torch.mean(locloss * idx, 1)
@@ -256,13 +253,28 @@ class BaselineLoss(nn.Module):
         return Variable(batch_loss, requires_grad=True)
 
     def unlabelled_loss(self, boxpred, classpred, boxes, labels):
-        # Every other sample is an unlabelled noisy copy
-        # unloss = self.mse(labelled, unlabelled)
-        return
+        """
+        labelled image loss = (distance to target loss, IoU loss, class loss)
+        unlabelled image loss = labelled data as target
+        """
+        idxes = [[labels[n, 0].item(), n] for n in range(len(labels))
+                 if torch.all(labels[n] == labels[n, 0])]
+        labelidx = np.asarray(idxes)[:, 0]
+        unlabelidx = np.asarray(idxes)[:, 1]
+
+        # label loss
+        label_loss = self.boxing_loss(boxpred[labelidx], classpred[labelidx],
+                                      boxes[labelidx], labels[labelidx])
+        # Unlabel loss with labeled data as target
+        unlabel_loss = self.boxing_loss(boxpred[unlabelidx], classpred[unlabelidx],
+                                        boxpred[labelidx], classpred[labelidx])
+        batchloss = torch.mean(torch.cat((label_loss, unlabel_loss)), 0)
+        return batchloss
+
 
 class Evaluate(object):
-    def __init__(self):
-        pass
+    def __init__(self, arguments, label_ids):
+        self.data = DataLoader(arguments.files, landmarks=len(label_ids))
 
 
 #######################################################################################################################
@@ -277,6 +289,7 @@ class Args(object):
                           "../data/filenames/local_landmarks.txt"]
         self.lr = 0.001
         self.batch_size = 2
+        self.log_comment = "tryout"
 
 
 if __name__ == '__main__':

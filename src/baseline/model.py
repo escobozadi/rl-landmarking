@@ -115,22 +115,27 @@ if __name__ == '__main__':
     # model = BaselineModel()
     import numpy as np
     path = "/Users/dianaescoboza/Documents/PycharmProjects/rl-landmark/rl-medical/src/data/images/0a0a5d3d-m527_a528_st533_se536_i21457_1_46_US_.png"
+    path2 = "/Users/dianaescoboza/Documents/PycharmProjects/rl-landmark/rl-medical/src/data/images/0f802bcf-3496___m3448_a3496_s3527_1_13_US_.png"
 
-    image = cv2.imread(path)  # .transpose(2, 0, 1)
-    x = round(0.4073333333333333 * image.shape[1])
-    y = round(0.6685823754789273 * image.shape[0])
-    image = cv2.copyMakeBorder(image, 0, 786 - image.shape[0], 0, 1136 - image.shape[1], cv2.BORDER_CONSTANT)
+    # image = cv2.imread(path)  # .transpose(2, 0, 1)
+    # image2 = cv2.imread(path2)
+    # x = round(0.4073333333333333 * image.shape[1])
+    # y = round(0.6685823754789273 * image.shape[0])
+    # # image = cv2.copyMakeBorder(image, 0, 786 - image.shape[0], 0, 1136 - image.shape[1], cv2.BORDER_CONSTANT)
     # image = image.transpose(2, 0, 1)
+    # image2 = image2.transpose(2, 0, 1)
     # image = torch.from_numpy(image).float() / 255
-    # out, c = model.forward(image.unsqueeze(0))
-    size = image.shape
-    image = image / 255
-    noise_img = image + np.random.rand(size[0], size[1], size[2]) * 0.5
+    # image2 = torch.from_numpy(image2).float() / 255
+    # a, b, c = model.forward(image.unsqueeze(0))
+    # a2, b2, c2 = model.forward(image2.unsqueeze(0))
+    # size = image.shape
+    # image = image / 255
+    # noise_img = image + np.random.rand(size[0], size[1], size[2]) * 0.5
     # cv2.circle(image, (x, y), radius=5, color=255, thickness=-1)
-    imagescat = np.concatenate((image, noise_img), axis=1)
-    cv2.imshow("image and noisy-image", imagescat)
-    # cv2.imshow("image", image)
-    cv2.waitKey(0)
+    # imagescat = np.concatenate((image, noise_img), axis=1)
+    # cv2.imshow("image and noisy-image", imagescat)
+    # # cv2.imshow("image", image)
+    # cv2.waitKey(0)
 
     # width = 0
     # height = 0

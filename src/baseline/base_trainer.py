@@ -13,7 +13,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 
 class DetecTrainer(object):
-    def __init__(self, arguments, label_ids, setting="baseline", useparallel=False):
+    def __init__(self, arguments, label_ids, setting="baseline", useparallel=True):
         # Hyperparameters
         self.batch_size = arguments.batch_size  # must be multiple of 2 for semi-supervised
         self.labels = label_ids

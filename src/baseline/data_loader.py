@@ -63,9 +63,9 @@ class DataLoader(object):
         if np_image is None:
             print("Empty Image")
             print(filename)
-        # Max size image = 786 x 1136 x 3
-        np_image = cv2.copyMakeBorder(np_image, 0, 786 - np_image.shape[0],
-                                      0, 1136 - np_image.shape[1], cv2.BORDER_CONSTANT)
+        # # Max size image = 786 x 1136 x 3
+        # np_image = cv2.copyMakeBorder(np_image, 0, 786 - np_image.shape[0],
+        #                               0, 1136 - np_image.shape[1], cv2.BORDER_CONSTANT)
         np_image = np_image / 255.0
         np_image = np_image.transpose(2, 0, 1)  # (channels, x, y)
         return np_image.tolist()

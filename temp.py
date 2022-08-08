@@ -200,7 +200,8 @@ class ModelLog(object):
         validation = {}
         info_epoch = {}
         success_train = {}
-        agents = {"0": 0, "1": 0, "2": 0}
+        agents = {"0": 0, "1": 0, "2": 0, "3": 0, "4": 0, "5": 0,
+                  "6": 0, "7": 0, "8": 0, "9": 0, "10": 0}
         epoch_num = 1
         with open(path) as t:
             lines = [x.strip() for x in list(t) if x]
@@ -208,14 +209,14 @@ class ModelLog(object):
                 info = l.split(" ")
                 if info[0] == "train/dist" or info[0] == "train/score":
                     ep = info[2].replace(":", "")
-                    dic = " ".join(info[3:]).replace("'", "\"")
+                    dic = " ".join(info[3:]).replace("'", "\"").replace("nan", "NaN")
                     dic = json.loads(dic)
                     dist[ep] = dic
                     score[ep] = dic
 
                 elif info[0] == "train":
                     ep = info[2].replace(":", "")
-                    dic = " ".join(info[3:]).replace("'", "\"")
+                    dic = " ".join(info[3:]).replace("'", "\"").replace("nan", "NaN")
                     dic = json.loads(dic)
                     if not ep in info_epoch.keys():
                         info_epoch[ep] = {}
@@ -226,7 +227,7 @@ class ModelLog(object):
 
                 elif info[0] == "train/mean_dist":
                     ep = info[2].replace(":", "")
-                    dic = " ".join(info[3:]).replace("'", "\"")
+                    dic = " ".join(info[3:]).replace("'", "\"").replace("nan", "NaN")
                     dic = json.loads(dic)
                     agent = list(dic.keys())[0]
                     if not ep in epoch.keys():
@@ -236,7 +237,7 @@ class ModelLog(object):
 
                 elif info[0] == "eval/mean_dist":
                     ep = info[2].replace(":", "")
-                    dic = " ".join(info[3:]).replace("'", "\"")
+                    dic = " ".join(info[3:]).replace("'", "\"").replace("nan", "NaN")
                     dic = json.loads(dic)
                     agent = list(dic.keys())[0]
                     if not ep in validation.keys():
@@ -267,6 +268,80 @@ class ModelLog(object):
 
         with open(save_path + "success-train.json", "w") as file:
             json.dump(success_train, file)
+
+        return
+
+    def saveBaseline(self, path):
+        log = path + "/logs.txt"
+        train_loss = {}
+        train_dists = {}
+        val_loss = {}
+        val_dists = {}
+
+        type = "train"
+        epoch = 0
+        with open(log) as t:
+            lines = [x.strip().split(" ") for x in list(t) if x]
+        for line in lines:
+            if line[0] == "EPOCH":
+                epoch = int(line[1])
+                if epoch not in train_loss:
+                    train_loss[epoch] = []
+                    train_dists[epoch] = []
+                else:
+                    val_loss[epoch] = []
+                    val_dists[epoch] = []
+                continue
+            elif line[1] == "Total":
+                if line[0] == "Train":
+                    train_loss[epoch].append(line[3])
+                    type = "train"
+                elif line[0] == "Validation":
+                    val_loss[epoch].append(line[3])
+                    type = "val"
+                continue
+            elif line[0] == "Target":
+                if type == "train":
+                    train_loss[epoch].append(line[3][:-1])
+                    train_loss[epoch].append(line[7][:-1])
+                    train_loss[epoch].append(line[10])
+                else:
+                    val_loss[epoch].append(line[3][:-1])
+                    val_loss[epoch].append(line[7][:-1])
+                    val_loss[epoch].append(line[10])
+                continue
+            elif line[0] == "Agent":
+                if type == "train":
+                    train_dists[epoch].append(line[2])
+                    train_dists[epoch].append(line[6])
+                    train_dists[epoch].append(line[10])
+                    train_dists[epoch].append(line[14])
+                    train_dists[epoch].append(line[18])
+                    train_dists[epoch].append(line[22])
+                    train_dists[epoch].append(line[26])
+                    train_dists[epoch].append(line[30])
+                else:
+                    val_dists[epoch].append(line[2])
+                    val_dists[epoch].append(line[6])
+                    val_dists[epoch].append(line[10])
+                    val_dists[epoch].append(line[14])
+                    val_dists[epoch].append(line[18])
+                    val_dists[epoch].append(line[22])
+                    val_dists[epoch].append(line[26])
+                    val_dists[epoch].append(line[30])
+                continue
+
+        with open(path + "/train-dists.json", "w") as file:
+            json.dump(train_dists, file)
+
+        with open(path + "/val-dists.json", "w") as file:
+            json.dump(val_dists, file)
+
+        with open(path + "/train-loss.json", "w") as file:
+            json.dump(train_loss, file)
+
+        with open(path + "/val-loss.json", "w") as file:
+            json.dump(val_loss, file)
 
         return
 
@@ -324,7 +399,6 @@ class ModelLog(object):
 
         return file_min, file_max, min_dist, max_dist
 
-
     def image_show(self, min_dic, max_dic, dmin, dmax):
         path = "src/data/images/"
         save = "src/tests/test-results/all-agents-first-run/"
@@ -372,147 +446,214 @@ class ModelLog(object):
         return
 
 
-def vizualize(path, target):
-    """
-        ._.
-    """
-    label = "a60fc140-1498___m1488_a1498_s1511_0_186050_US_.txt"
-    image = cv2.imread(dir + label[:-4] + ".png")
-    with open(elbow_landmarks + label, "r") as target:
-        landmark = [line.strip() for line in list(target)]
-    target.close()
-    dic = {}
-    for l in landmark:
-        info = l.split(" ")
-        id = int(info[0])
-        if id not in list(dic.keys()):
-            dic[id] = []
-            dic[id].append(info[1:])
-        else:
-            dic[id].append(info[1:])
+class plotTraining(object):
+    pass
 
-    np_image = cv2.imread(path, cv2.IMREAD_COLOR)
-    # (y: from up to down ,x)
-    # transpose: (x: from right to left, y)
-    pts = np.array([[0.5886666666666666, 0.3093869731800766],
-                    [0.7573333333333332, 0.5114942528735632],
-                    [0.2901135646687697, 0.7315857377433733]])
-    width = np.array([0.2813333333333333, 0.16266666666666665, 0.3])
-    height = np.array([0.1743295019157088, 0.17624521072796934, 0.1475095785440613])
-    pts[:, 0] *= np_image.shape[1]
-    pts[:, 1] *= np_image.shape[0]
-    width *= np_image.shape[1]
-    height *= np_image.shape[0]
-    h, w = np_image.shape
-    # for i in range(3):
-    #     size = np.array([[(width[i])/2 + pts[i][0], (height[i])/2 + pts[i][1]]])
-    #     pts = np.append(pts, size, axis=0)
-    pts = np.floor(pts).astype(int)
-    height = np.ceil(height).astype(int)
-    width = np.ceil(width).astype(int)
-    np_image = cv2.transpose(np_image)
-    print(np_image.shape)
-    for i in range(3):
-        np_image = cv2.circle(np_image, (pts[i][1], pts[i][0]), radius=10, color=255)
-    # np_image = cv2.circle(np_image, (pts[0][0] + width[0], pts[0][1] - height[0]), radius=6, color=(0, 0, 255))
-    cv2.imshow("image", np_image.transpose(1, 0))
-    cv2.waitKey(0)
+    def vizualize(self, path, target):
+        """
+            ._.
+        """
+        label = "a60fc140-1498___m1488_a1498_s1511_0_186050_US_.txt"
+        image = cv2.imread(dir + label[:-4] + ".png")
+        with open(elbow_landmarks + label, "r") as target:
+            landmark = [line.strip() for line in list(target)]
+        target.close()
+        dic = {}
+        for l in landmark:
+            info = l.split(" ")
+            id = int(info[0])
+            if id not in list(dic.keys()):
+                dic[id] = []
+                dic[id].append(info[1:])
+            else:
+                dic[id].append(info[1:])
 
-    # landmarks = np.zeros((3, 2))
-    # landmarks[:] = np.nan
-    #
-    # with open(target) as t:
-    #     lines = [x.strip() for x in list(t) if x]
-    #     for l in lines:
-    #         info = l.split(" ")
-    #         id = int(info[0])
-    #         print(info[1:])
-    #         landmarks[id, :] = info[1:3]
-    #         print(landmarks)
-    #
-    # landmarks = np.asarray(landmarks)
-    # landmarks = landmarks.reshape((-1, landmarks.shape[1]))
+        np_image = cv2.imread(path, cv2.IMREAD_COLOR)
+        # (y: from up to down ,x)
+        # transpose: (x: from right to left, y)
+        pts = np.array([[0.5886666666666666, 0.3093869731800766],
+                        [0.7573333333333332, 0.5114942528735632],
+                        [0.2901135646687697, 0.7315857377433733]])
+        width = np.array([0.2813333333333333, 0.16266666666666665, 0.3])
+        height = np.array([0.1743295019157088, 0.17624521072796934, 0.1475095785440613])
+        pts[:, 0] *= np_image.shape[1]
+        pts[:, 1] *= np_image.shape[0]
+        width *= np_image.shape[1]
+        height *= np_image.shape[0]
+        h, w = np_image.shape
+        # for i in range(3):
+        #     size = np.array([[(width[i])/2 + pts[i][0], (height[i])/2 + pts[i][1]]])
+        #     pts = np.append(pts, size, axis=0)
+        pts = np.floor(pts).astype(int)
+        height = np.ceil(height).astype(int)
+        width = np.ceil(width).astype(int)
+        np_image = cv2.transpose(np_image)
+        print(np_image.shape)
+        for i in range(3):
+            np_image = cv2.circle(np_image, (pts[i][1], pts[i][0]), radius=10, color=255)
+        # np_image = cv2.circle(np_image, (pts[0][0] + width[0], pts[0][1] - height[0]), radius=6, color=(0, 0, 255))
+        cv2.imshow("image", np_image.transpose(1, 0))
+        cv2.waitKey(0)
 
-    return
+        # landmarks = np.zeros((3, 2))
+        # landmarks[:] = np.nan
+        #
+        # with open(target) as t:
+        #     lines = [x.strip() for x in list(t) if x]
+        #     for l in lines:
+        #         info = l.split(" ")
+        #         id = int(info[0])
+        #         print(info[1:])
+        #         landmarks[id, :] = info[1:3]
+        #         print(landmarks)
+        #
+        # landmarks = np.asarray(landmarks)
+        # landmarks = landmarks.reshape((-1, landmarks.shape[1]))
 
+        return
 
-def plot_successes(path):
-    with open(path + "success-train.json", "r") as i:
-        log = json.load(i)
-    x = np.asarray(list(log.keys())).astype(int)
-    success = np.asarray(list(log.values()))
-    values0 = [d["0"] for d in success]
-    values1 = [d["1"] for d in success]
-    values2 = [d["2"] for d in success]
+    def plot_successes(self, path):
+        with open(path + "success-train.json", "r") as i:
+            log = json.load(i)
+        x = np.asarray(list(log.keys())).astype(int)
+        success = np.asarray(list(log.values()))
+        values0 = [d["0"] for d in success]
+        values1 = [d["1"] for d in success]
+        values2 = [d["2"] for d in success]
 
-    plt.figure(1)
-    plt.plot(x, values0, 'c-', label="Agent 0")
-    plt.plot(x, values1, 'm-', label="Agent 1")
-    plt.plot(x, values2, 'k-', label="Agent 2")
-    plt.title("Number of Successes During Training")
-    plt.xlabel("Epoch")
-    plt.ylabel("# of Successes")
-    plt.legend(loc='upper right')
-    plt.text(0, 40, s="Agent 0 total successes:{}".format(sum(values0)))
-    plt.text(0, 38, s="Agent 1 total successes:{}".format(sum(values1)))
-    plt.text(0, 36, s="Agent 2 total successes:{}".format(sum(values2)))
-    plt.show()
+        plt.figure(1)
+        plt.plot(x, values0, 'c-', label="Agent 0")
+        plt.plot(x, values1, 'm-', label="Agent 1")
+        plt.plot(x, values2, 'k-', label="Agent 2")
+        plt.title("Number of Successes During Training")
+        plt.xlabel("Epoch")
+        plt.ylabel("# of Successes")
+        plt.legend(loc='upper right')
+        plt.text(0, 40, s="Agent 0 total successes:{}".format(sum(values0)))
+        plt.text(0, 38, s="Agent 1 total successes:{}".format(sum(values1)))
+        plt.text(0, 36, s="Agent 2 total successes:{}".format(sum(values2)))
+        plt.show()
 
-    return
+        return
 
+    def plot_log(self, train, val, name1, name2, save_path, agents=1):
+        with open(train, "r") as t, open(val, "r") as v:
+            dist = json.load(t)
+            vdist = json.load(v)
 
-def plot_log(train, val, name1, name2, save_path, agents=1):
-    with open(train, "r") as t, open(val, "r") as v:
-        dist = json.load(t)
-        vdist = json.load(v)
+        entries = dist.keys()
+        agent = np.zeros((agents, len(entries)))
+        vagent = np.zeros((agents, len(entries)))
+        x = np.arange(len(entries))
+        for i in range(agents):
+            agent[i] = [d[str(i)] for d in list(dist.values())]
+            vagent[i] = [d[str(i)] for d in list(vdist.values())]
 
-    entries = dist.keys()
-    agent = np.zeros((agents, len(entries)))
-    vagent = np.zeros((agents, len(entries)))
-    x = np.arange(len(entries))
-    for i in range(agents):
-        agent[i] = [d[str(i)] for d in list(dist.values())]
-        vagent[i] = [d[str(i)] for d in list(vdist.values())]
+        colors = ["c-", "b-", "g-", "r-", "m-", "y-", "k-", "k-", "b-", "g-"]
+        # plt.figure(1)
+        plt.subplot(1, 2, 1)
+        for i in range(agents):
+            plt.plot(x, agent[i], colors[i], label="Agent {}".format(i))
+        plt.title(name1)
+        plt.xlabel("Epoch")
+        plt.ylabel("Distance (mm)")
+        plt.legend(loc='upper right')
 
-    # plt.figure(1)
-    plt.subplot(1, 2, 1)
-    for i in range(agents):
-        plt.plot(x, agent[i], 'c-', label="Agent {}".format(i))
-    plt.title(name1)
-    plt.xlabel("Epoch")
-    plt.ylabel("Distance (mm)")
-    plt.legend(loc='upper right')
+        plt.subplot(1, 2, 2)
+        for i in range(agents):
+            plt.plot(x, vagent[i], colors[i], label="Agent {}".format(i))
+        plt.title(name2)
+        plt.xlabel("Epoch")
+        plt.ylabel("Distance (mm)")
+        plt.legend(loc='upper right')
 
-    plt.subplot(1, 2, 2)
-    for i in range(agents):
-        plt.plot(x, vagent[i], 'c-', label="Agent {}".format(i))
-    plt.title(name2)
-    plt.xlabel("Epoch")
-    plt.ylabel("Distance (mm)")
-    plt.legend(loc='upper right')
+        plt.savefig(save_path + "results-dist.png")
+        plt.show()
 
-    plt.savefig(save_path + "results-dist.png")
-    plt.show()
+        return
 
-    return
+    def plot_loss(self, info):
+        with open(info, "r") as i:
+            log = json.load(i)
 
+        x = np.arange(len(log.keys()))
+        loss = [d["loss"] for d in list(log.values())]
 
-def plot_loss(info):
-    with open(info, "r") as i:
-        log = json.load(i)
+        plt.figure(1)
+        plt.plot(x, loss, 'k-', label="Loss")
+        plt.title("Training Loss")
+        plt.xlabel("Epoch")
+        plt.ylabel("Loss")
 
-    x = np.arange(len(log.keys()))
-    loss = [d["loss"] for d in list(log.values())]
+        plt.show()
 
-    plt.figure(1)
-    plt.plot(x, loss, 'k-', label="Loss")
-    plt.title("Training Loss")
-    plt.xlabel("Epoch")
-    plt.ylabel("Loss")
+        return
 
-    plt.show()
+    def plot_baseline(self, path):
+        train_dists = json.load(open(path + "/train-dists.json", "r"))
+        val_dists = json.load(open(path + "/val-dists.json", "r"))
+        train_loss = json.load(open(path + "/train-loss.json", "r"))
+        val_loss = json.load(open(path + "/val-loss.json", "r"))
 
-    return
+        epochs = np.asarray(list(train_loss.keys())).astype(int)
+        agent = np.zeros((8, len(epochs)))
+        vagent = np.zeros((8, len(epochs)))
+        tdists = np.asarray(list(train_dists.values())).astype(float)
+        vdists = np.asarray(list(val_dists.values())).astype(float)
+        for i in range(8):
+            agent[i] = tdists[:, i]
+            vagent[i] = vdists[:, i]
+        tloss = np.asarray(list(train_loss.values())).astype(float)
+        vloss = np.asarray(list(val_loss.values())).astype(float)
+
+        colors = ["k-", "c-", "b-", "g-", "r-", "m-", "y-", "k-"]
+        plt.subplot(2, 3, 1)
+        plt.plot(epochs, tloss[:, 0], "r-", label="Mean Total Loss")
+        plt.title("Training Mean Loss")
+        plt.xlabel("Epoch")
+        plt.ylabel("Loss")
+        plt.legend(loc='upper right')
+
+        plt.subplot(2, 3, 2)
+        plt.plot(epochs, tloss[:, 1], "r-", label="Mean Distance Loss")
+        plt.title("Training Distance to Target Loss")
+        plt.xlabel("Epoch")
+        plt.ylabel("Loss")
+        plt.legend(loc='upper right')
+
+        plt.subplot(2, 3, 4)
+        plt.plot(epochs, tloss[:, 2], "r-", label="Mean IoU Loss")
+        plt.title("Training IoU Loss")
+        plt.xlabel("Epoch")
+        plt.ylabel("Loss")
+        plt.legend(loc='upper right')
+
+        plt.subplot(2, 3, 5)
+        plt.plot(epochs, tloss[:, 3], "r-", label="Mean Class Loss")
+        plt.title("Training Landmark Detection Loss")
+        plt.xlabel("Epoch")
+        plt.ylabel("Loss")
+        plt.legend(loc='upper right')
+
+        plt.subplot(2, 3, 3)
+        for i in range(8):
+            plt.plot(epochs, agent[i], colors[i], label="Target {}".format(i))
+        plt.title("Distance Target Training")
+        plt.xlabel("Epoch")
+        plt.ylabel("Distance (mm)")
+        plt.legend(loc='upper right')
+
+        plt.subplot(2, 3, 6)
+        for i in range(8):
+            plt.plot(epochs, vagent[i], colors[i], label="Target {}".format(i))
+        plt.title("Distance Target Validation")
+        plt.xlabel("Epoch")
+        plt.ylabel("Distance (mm)")
+        plt.legend(loc='upper right')
+
+        plt.savefig(path + "/results.png")
+        plt.show()
+        return
 
 
 def images_names(directory, destination, im_files):
@@ -599,9 +740,30 @@ class FilesOrdering(object):
 
 if __name__ == '__main__':
 
-    dir = "/Users/dianaescoboza/Documents/SUMMER22/Datasets/KneeDS/knee-images/"
-    knee_landmarks = "/Users/dianaescoboza/Documents/SUMMER22/Datasets/KneeDS/labels/"
-    files = "src/data/filenames/"
+    dir = "/Users/dianaescoboza/Documents/SUMMER22/Datasets/"
+    dest = "/Users/dianaescoboza/Documents/PycharmProjects/rl-landmark/rl-medical/src/data/"
+    folders = ["test/", "val/", "train/"]
+    # images = [f for f in os.listdir(dir + folders[2]) if f[0] != "."]
+    # files = [dir + folders[2] + f for f in os.listdir(dir + folders[2]) if f[0] != "."]
+    # for im in images:
+    #     image = cv2.imread(dir + folders[2] + im)
+    #     image = cv2.resize(image, (256, 256))
+    #     cv2.imwrite(dest + folders[2] + im, image)
+
+    # plots = plotTraining()
+    # plots.plot_baseline(dir)
+    # path = "src/test-sync/all-targets-take2/mount/"
+    # trainlog = "src/test-sync/all-targets-take2/mount/train-epoch.json"
+    # vallog = "src/test-sync/all-targets-take2/mount/val-mean.json"
+    # traininglog = ModelLog()
+    # traininglog.saveBaseline(dir)
+
+
+    # traininglog.save_training(dir, path)
+    # train = plotTraining()
+    # train.plot_log(trainlog, vallog, "Train", "Validation", path, agents=8)
+    # train.save_training(dir, path)
+
 
     # order = FilesOrdering(files)
     # order.updateDir()
@@ -618,18 +780,6 @@ if __name__ == '__main__':
 
     # data = CleanData()
     # data.ImageNorm(elbow_dir, dest, elbow_images)
-
-    # im_files = [f for f in os.listdir(dest) if not f.startswith('.')]
-    # all_im = [f for f in os.listdir(dir) if not f.startswith('.')]
-    # images = []
-    # for file in all_im:
-    #     if file[-4:] != ".png":
-    #         continue
-    #
-    #     if file not in im_files:
-    #         images.append(file)
-    #
-    # images_names(dir, dest, images)
 
     # label = "a60fc140-1498___m1488_a1498_s1511_0_186050_US_.txt"
     # image = cv2.imread(dir + label[:-4] + ".png")

@@ -9,25 +9,23 @@ class BaselineModel(nn.Module):
 
     def __init__(self, targets=8):
         super(BaselineModel, self).__init__()
-        self.targets = targets
+        self.targets = targets  # number of total landmarks
         self.device = torch.device(
             "cuda:0" if torch.cuda.is_available() else "cpu")
-
         # Pretrained Segmentation Model
-        self.backbone = deeplabv3_mobilenet_v3_large(pretrained_backbone=True)
-        self.backbone = self.backbone.backbone
-        layer_count = 0
-        for child in self.backbone.children():
-            if layer_count <= 7:
-                for param in child.parameters():
-                    param.requires_grad = False
-            layer_count += 1
-
-        self.backbone = nn.Sequential(*list(self.backbone.children())[:7]).to(self.device)
+        # self.backbone = deeplabv3_mobilenet_v3_large(pretrained_backbone=True)
+        # self.backbone = self.backbone.backbone
+        # layer_count = 0
+        # for child in self.backbone.children():
+        #     if layer_count <= 7:
+        #         for param in child.parameters():
+        #             param.requires_grad = False
+        #     layer_count += 1
+        # self.backbone = nn.Sequential(*list(self.backbone.children())[:7]).to(self.device)
         # print(self.backbone)
 
         self.conv0 = nn.Conv2d(
-            in_channels=40,
+            in_channels=3,
             out_channels=32,
             kernel_size=(5, 5),
             padding=1).to(self.device)
@@ -42,16 +40,25 @@ class BaselineModel(nn.Module):
         self.maxpool1 = nn.MaxPool2d(
             kernel_size=(4, 4)).to(self.device)
 
+        self.conv2 = nn.Conv2d(
+            in_channels=32,
+            out_channels=16,
+            kernel_size=(5, 5),
+            padding=1).to(self.device)
+        self.maxpool2 = nn.MaxPool2d(
+            kernel_size=(2, 2)).to(self.device)
+
         self.prelu0 = nn.PReLU().to(self.device)
         self.prelu1 = nn.PReLU().to(self.device)
+        self.prelu2 = nn.PReLU().to(self.device)
 
         self.fc1 = nn.ModuleList(
             [nn.Linear(
-                in_features=32*11*17,
+                in_features=16*14*14,
                 out_features=256).to(
                 self.device) for _ in range(
                 self.targets + 1)])
-        self.prelu2 = nn.ModuleList(
+        self.prelu3 = nn.ModuleList(
             [nn.PReLU().to(self.device) for _ in range(self.targets + 1)])
 
         self.fc2 = nn.ModuleList(
@@ -60,49 +67,46 @@ class BaselineModel(nn.Module):
                 out_features=128).to(
                 self.device) for _ in range(
                 self.targets + 1)])
-        self.prelu3 = nn.ModuleList(
+        self.prelu4 = nn.ModuleList(
             [nn.PReLU().to(self.device) for _ in range(self.targets + 1)])
 
-        # Predict box center(x,y), height, width
+        # Predict target (x,y)
         self.fc3 = nn.ModuleList(
             [nn.Linear(
                 in_features=128,
-                out_features=4).to(
+                out_features=2).to(
                 self.device) for _ in range(
                 self.targets)])
-        self.sigmoid = nn.ModuleList(
-            [nn.Sigmoid().to(self.device) for _ in range(self.targets + 1)])
 
-        self.fc = nn.Linear(in_features=128, out_features=targets).to(self.device)
-        # self.softmax = nn.Softmax()
+        self.fcl = nn.Linear(in_features=128, out_features=targets).to(self.device)
 
         return
 
-    @autocast()
+    # @autocast()
     def forward(self, input):
-
-        x = self.backbone(input)
-        x = self.conv0(x)
-        x = self.prelu0(x)
-        x = self.maxpool0(x)
-        x = self.conv1(x)
-        x = self.prelu1(x)
-        x = self.maxpool1(x)
-        conv_out = x.view(-1, 32*11*17)
+        # Input:    batch x (3, 256, 256)
+        # x = self.backbone(input)
+        x = self.prelu0(self.conv0(input))  # N x (32, 254, 254)
+        x = self.maxpool0(x)    # N x (32, 127, 127)
+        x = self.prelu1(self.conv1(x))  # N x (32, 125, 125)
+        x = self.maxpool1(x)    # N x (32, 31, 31)
+        x = self.prelu2(self.conv2(x))  # N x (16, 29, 29)
+        x = self.maxpool2(x)    # N x (16, 14, 14)
+        conv_out = x.view(-1, 16*14*14)
 
         output = []
-        # Landmark Boxing Layers
+        # Landmark Detection Layers
         for i in range(self.targets):
-            x = self.prelu2[i](self.fc1[i](conv_out))
-            x = self.prelu3[i](self.fc2[i](x))
-            x = self.sigmoid[i](self.fc3[i](x))
+            x = self.prelu3[i](self.fc1[i](conv_out))
+            x = self.prelu4[i](self.fc2[i](x))
+            x = self.fc3[i](x)
             output.append(x)
         output = torch.stack(output, dim=1)
 
         # Landmark Classification Layers
-        y = self.prelu2[-1](self.fc1[-1](conv_out))
-        y = self.prelu3[-1](self.fc2[-1](y))
-        classification = self.sigmoid[-1](self.fc(y))
+        y = self.prelu3[-1](self.fc1[-1](conv_out))
+        y = self.prelu4[-1](self.fc2[-1](y))
+        classification = self.fcl(y)
 
         return output, classification
 
@@ -110,31 +114,29 @@ class BaselineModel(nn.Module):
 ########################################################################################################################
 # Experimenting with model
 
-
 if __name__ == '__main__':
-    # model = BaselineModel()
+    model = BaselineModel()
     import numpy as np
-    path = "/Users/dianaescoboza/Documents/PycharmProjects/rl-landmark/rl-medical/src/data/images/0a0a5d3d-m527_a528_st533_se536_i21457_1_46_US_.png"
-    path2 = "/Users/dianaescoboza/Documents/PycharmProjects/rl-landmark/rl-medical/src/data/images/0f802bcf-3496___m3448_a3496_s3527_1_13_US_.png"
+    path = "/Users/dianaescoboza/Documents/PycharmProjects/rl-landmark/rl-medical/src/data/train/0a0a5d3d-m527_a528_st533_se536_i21457_1_46_US_.png"
 
-    # image = cv2.imread(path)  # .transpose(2, 0, 1)
-    # image2 = cv2.imread(path2)
-    # x = round(0.4073333333333333 * image.shape[1])
-    # y = round(0.6685823754789273 * image.shape[0])
+    image = cv2.imread(path)  # .transpose(2, 0, 1)
+    x = round(0.4073333333333333 * 256)
+    y = round(0.6685823754789273 * 256)
     # # image = cv2.copyMakeBorder(image, 0, 786 - image.shape[0], 0, 1136 - image.shape[1], cv2.BORDER_CONSTANT)
-    # image = image.transpose(2, 0, 1)
-    # image2 = image2.transpose(2, 0, 1)
-    # image = torch.from_numpy(image).float() / 255
-    # image2 = torch.from_numpy(image2).float() / 255
-    # a, b, c = model.forward(image.unsqueeze(0))
-    # a2, b2, c2 = model.forward(image2.unsqueeze(0))
+    image = image.transpose(2, 0, 1)
+    image = torch.from_numpy(image).float() / 255
+    a, b = model.forward(image.unsqueeze(0))
+    print(a)
+    print(b)
     # size = image.shape
     # image = image / 255
     # noise_img = image + np.random.rand(size[0], size[1], size[2]) * 0.5
-    # cv2.circle(image, (x, y), radius=5, color=255, thickness=-1)
-    # imagescat = np.concatenate((image, noise_img), axis=1)
-    # cv2.imshow("image and noisy-image", imagescat)
-    # # cv2.imshow("image", image)
+    # cv2.circle(image1, (x, y), radius=2, color=255, thickness=-1)
+    # cv2.circle(image2, (x, y), radius=2, color=255, thickness=-1)
+    # cv2.circle(image3, (x, y), radius=2, color=255, thickness=-1)
+    # imagescat = np.concatenate((image1, image2, image3), axis=1)
+    # cv2.imshow("image resize", imagescat)
+    # cv2.imshow("image", image)
     # cv2.waitKey(0)
 
     # width = 0

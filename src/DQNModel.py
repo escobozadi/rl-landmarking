@@ -97,15 +97,15 @@ class CommNet(nn.Module):
         self.device = device
 
         # Pretrained Segmentation Model
-        self.backbone = deeplabv3_mobilenet_v3_large(pretrained_backbone=True).backbone
-        layer_count = 0
-        for child in self.backbone.children():
-            if layer_count <= 5:
-                for param in child.parameters():
-                    param.requires_grad = False
-            layer_count += 1
-        self.backbone = nn.Sequential(*list(self.backbone.children())[:5]).to(self.device)
-        print(self.backbone)
+        # self.backbone = deeplabv3_mobilenet_v3_large(pretrained_backbone=True).backbone
+        # layer_count = 0
+        # for child in self.backbone.children():
+        #     if layer_count <= 5:
+        #         for param in child.parameters():
+        #             param.requires_grad = False
+        #     layer_count += 1
+        # self.backbone = nn.Sequential(*list(self.backbone.children())[:5]).to(self.device)
+        # print(self.backbone)
 
         if landmarks is None:
             # [0 1 2 3 4 5 6 7]

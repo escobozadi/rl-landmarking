@@ -51,6 +51,8 @@ class DetecTrainer(object):
         # Logger
         self.data_logger = SummaryWriter(comment=arguments.log_comment)
         self.logs = open(self.data_logger.get_logdir() + "/logs.txt", "w")
+        print("Using :", self.device)
+        self.logs.write("Using :" + str(self.device) + '\n')
         # # self.data_logger.add_hparams({"lr": arguments.lr, "batch_size": arguments.batch_size})
         # _, _, imgs = next(self.sample)
         # imgs = imgs.to(self.device)
@@ -91,10 +93,9 @@ class DetecTrainer(object):
                 else:
                     batch_loss = self.LossFunc.boxing_loss(loc_pred, class_pred, boxes, targets)
                 batch_loss.backward(torch.ones_like(batch_loss))
-                if (n+1) % 2 == 0 or (n+1) == self.traindata.num_files:
-                    # Optimizer step every other epoch
-                    self.optimizer.step()
-                    self.optimizer.zero_grad(set_to_none=True)
+                # Optimizer Step
+                self.optimizer.step()
+                self.optimizer.zero_grad(set_to_none=True)
 
                 # Results saving
                 loss += torch.mean(batch_loss).detach().item()
@@ -133,7 +134,7 @@ class DetecTrainer(object):
         self.data_logger.close()
         return
 
-    @torch.no_grad()
+    # @torch.no_grad()
     def validation(self, epoch):
         self.model.train(False)
         # Restart Generator

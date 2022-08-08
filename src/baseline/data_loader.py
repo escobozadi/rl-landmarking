@@ -22,7 +22,7 @@ class DataLoader(object):
             self.landmark_files = [line.split('\n')[0]
                                    for line in open(files_list[1].name)]
 
-        self.files_idxes = np.arange(self.num_files)
+        self.files_idxes = None
         self.batchidx = None
         self.restartfiles()
         assert len(self.image_files) == len(self.landmark_files), """number of image files is not equal to
@@ -39,8 +39,8 @@ class DataLoader(object):
         6  triceps tendon insertion
         7  humerus
         """
-        # (# labels, x, y, height, width)
-        landmarks = np.zeros((self.landmarks, 4))
+        # (# labels, x, y)
+        landmarks = np.zeros((self.landmarks, 2))
         landmarks[:] = np.nan
 
         classes = [0 for i in range(self.landmarks)]
@@ -49,7 +49,7 @@ class DataLoader(object):
             for l in lines:
                 info = l.split(" ")
                 id = int(info[0])
-                landmarks[id, :] = info[1:]
+                landmarks[id, :] = info[1:3]
 
         targets = np.argwhere(~np.isnan(landmarks[:, 0])).reshape([-1, ])
         for i in range(self.landmarks):
@@ -57,7 +57,8 @@ class DataLoader(object):
                 classes[i] = 1
         return landmarks.tolist(), classes
 
-    def getImage(self, filename):
+    @staticmethod
+    def getImage(filename):
         # Read Image and Get to Right Size
         np_image = cv2.imread(filename)
         if np_image is None:
@@ -70,7 +71,8 @@ class DataLoader(object):
         np_image = np_image.transpose(2, 0, 1)  # (channels, x, y)
         return np_image.tolist()
 
-    def getNoisyImage(self, image):
+    @staticmethod
+    def getNoisyImage(image):
         noisy_image = np.asarray(copy.deepcopy(image))
         size = noisy_image.shape
         noisy_image = noisy_image + np.random.rand(size[0], size[1], size[2]) * 0.5
@@ -91,7 +93,8 @@ class DataLoader(object):
             self.batchidx.append(batch)
         return
 
-    def mixSample(self, images, landmarks, classes):
+    @staticmethod
+    def mixSample(images, landmarks, classes):
         unlabelidx = [(2*i)+1 for i in range(int(len(classes)/2))]
         labelidx = [(2*i) for i in range(int(len(classes)/2))]
 

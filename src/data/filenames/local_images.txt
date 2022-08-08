@@ -1,4 +1,10 @@
-./data/images/0aa14b8f-m2931_a3000_st3031_se3049_i115970_1_9_US_.png
-./data/images/0b6be194-m799_a802_st808_se812_i32277_1_24_US_.png
-./data/images/0e1c79f0-m332_a332_s334_1_7_US_.png
-./data/images/0fee55c6-m4021_a4140_st4188_se4213_i158602_1_7_US_.png
+./data/train/90ab2755-m1502_a1512_st1527_se1538_i59344_1_53_US_.png
+./data/train/7335c195-m364_a364_st366_se369_i14206_1_9_US_.png
+./data/train/ed894043-m4501_a4651_st4702_se4731_i178212_1_6_US_.png
+./data/train/0460d7ee-m3041_a3112_st3144_se3164_i120385_1_17_US_.png
+./data/train/ba3d713c-m11081_a11570_s11672_1_7_US_.png
+./data/train/c5518e7e-m660_a5817_st5891_se5920_i223897_1_5_US_.png
+./data/train/ecd69f2b-m503_a504_st509_se512_i20329_1_40_US_.png
+./data/train/74981b44-m1758_a1772_s1785_1_4_US_.png
+./data/train/fe411897-m1096_a1102_st1112_se1119_i43556_1_15_US_.png
+./data/train/c2dcace6-m2825_a2888_st2916_se2934_i111767_1_48_US_.png

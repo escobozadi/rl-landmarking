@@ -82,7 +82,7 @@ class BaselineModel(nn.Module):
 
         return
 
-    # @autocast()
+    @autocast()
     def forward(self, input):
         # Input:    batch x (3, 256, 256)
         # x = self.backbone(input)

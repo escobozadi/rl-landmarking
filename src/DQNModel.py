@@ -262,7 +262,7 @@ class CommNet(nn.Module):
         for i in range(self.agents):
             # for i in agents:
             # target_id = self.agents_targets[i]
-            x = self.input4[:, i]
+            x = input4[:, i]
             x = self.fc3[i](torch.cat((x, comm[i]), dim=-1))
             # self.output[:, i] = x
             output.append(x)

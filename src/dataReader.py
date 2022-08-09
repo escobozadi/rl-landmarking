@@ -43,7 +43,7 @@ def getLandmarksFromTXTFile(file, landmarks, split=' '):
         for l in lines:
             info = l.split(" ")
             id = int(info[0])
-            landmarks[id, :] = info[1:3]
+            landmarks[id - 1, :] = info[1:3]
 
     landmarks = np.asarray(landmarks)
     # landmarks[:,0] = -landmarks[:,0]
@@ -357,11 +357,11 @@ class PngImage(object):
     def decode(self, filename):
         ''' return image object with info'''
         image = ImageRecord()
-        image.name = filename
+        image.name = filename[6:]
         assert self._is_png(
             image.name), "unknown image format for %r" % image.name
 
-        np_image = cv2.imread(filename, cv2.IMREAD_GRAYSCALE)
+        np_image = cv2.imread(filename[6:], cv2.IMREAD_GRAYSCALE)
         if np_image is None:
             print("Empty Image")
             print(image.name)

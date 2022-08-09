@@ -1,13 +1,16 @@
 import torch
 import cv2
+import json
+import numpy as np
 import torch.nn as nn
+import matplotlib.pyplot as plt
 from torch.cuda.amp import autocast
 from torchvision.models.segmentation import deeplabv3_mobilenet_v3_large
 
 
 class BaselineModel(nn.Module):
 
-    def __init__(self, targets=8):
+    def __init__(self, targets=3):
         super(BaselineModel, self).__init__()
         self.targets = targets  # number of total landmarks
         self.device = torch.device(
@@ -82,7 +85,6 @@ class BaselineModel(nn.Module):
 
         return
 
-    @autocast()
     def forward(self, input):
         # Input:    batch x (3, 256, 256)
         # x = self.backbone(input)
@@ -111,66 +113,173 @@ class BaselineModel(nn.Module):
         return output, classification
 
 
+class BaselineLogs(object):
+    def __init__(self):
+        pass
+
+    def saveBaseline(self, path):
+        log = path + "/logs.txt"
+        train_loss = {}
+        train_dists = {}
+        val_loss = {}
+        val_dists = {}
+        tagent_losses = {}
+        vagent_losses = {}
+
+        type = "train"
+        epoch = 0
+        with open(log) as t:
+            lines = [x.strip().split(" ") for x in list(t) if x]
+        for line in lines:
+            if len(line) <= 1:
+                continue
+            if line[0] == "EPOCH":
+                epoch = int(line[1])
+                if epoch not in train_loss:
+                    train_loss[epoch] = []
+                    train_dists[epoch] = []
+                    tagent_losses[epoch] = {}
+                else:
+                    val_loss[epoch] = []
+                    val_dists[epoch] = []
+                    vagent_losses[epoch] = {}
+                continue
+            elif line[1] == "Total":
+                if line[0] == "Train":
+                    train_loss[epoch].append(line[3])
+                    type = "train"
+                elif line[0] == "Validation":
+                    val_loss[epoch].append(line[3])
+                    type = "val"
+                continue
+            elif line[0] == "Target":
+                if type == "train":
+                    train_loss[epoch].append(line[3][:-1])
+                    train_loss[epoch].append(line[6])
+                else:
+                    val_loss[epoch].append(line[3][:-1])
+                    val_loss[epoch].append(line[6])
+                continue
+            elif line[0] == "Agent" and line[2] == "Dist":
+                if type == "train":
+                    tagent_losses[epoch][line[1]] = [line[4], line[8]]
+                else:
+                    vagent_losses[epoch][line[1]] = [line[4], line[8]]
+                continue
+            elif line[0] == "Agent":
+                if type == "train":
+                    train_dists[epoch].append(line[2])
+                    train_dists[epoch].append(line[6])
+                    train_dists[epoch].append(line[10])
+                else:
+                    val_dists[epoch].append(line[2])
+                    val_dists[epoch].append(line[6])
+                    val_dists[epoch].append(line[10])
+                continue
+
+        with open(path + "/train-dists.json", "w") as file:
+            json.dump(train_dists, file)
+
+        with open(path + "/val-dists.json", "w") as file:
+            json.dump(val_dists, file)
+
+        with open(path + "/train-loss.json", "w") as file:
+            json.dump(train_loss, file)
+
+        with open(path + "/val-loss.json", "w") as file:
+            json.dump(val_loss, file)
+
+        with open(path + "/agent-trainloss.json", "w") as file:
+            json.dump(tagent_losses, file)
+
+        with open(path + "/agent-valloss.json", "w") as file:
+            json.dump(vagent_losses, file)
+
+        return
+
+    def plot_baseline(self, path):
+        train_dists = json.load(open(path + "/train-dists.json", "r"))
+        val_dists = json.load(open(path + "/val-dists.json", "r"))
+        train_loss = json.load(open(path + "/train-loss.json", "r"))
+        val_loss = json.load(open(path + "/val-loss.json", "r"))
+        agent_loss = json.load(open(path + "/agent-trainloss.json", "r"))
+        agent0 = []
+        for d in list(agent_loss.values()):
+            agent0.append(float(d['0'][0]))
+        print(agent_loss.values())
+        # agent0 = np.asarray(list(agent_loss.values())).astype(float)[:, 0]
+        print(agent0)
+
+        epochs = np.asarray(list(train_loss.keys())).astype(int)
+        agent = np.zeros((3, len(epochs)))
+        vagent = np.zeros((3, len(epochs)))
+        tdists = np.asarray(list(train_dists.values())).astype(float)
+        vdists = np.asarray(list(val_dists.values())).astype(float)
+        for i in range(3):
+            agent[i] = tdists[:, i]
+            vagent[i] = vdists[:, i]
+        tloss = np.asarray(list(train_loss.values())).astype(float)
+        vloss = np.asarray(list(val_loss.values())).astype(float)
+
+        colors = ["k-", "c-", "b-", "g-", "r-", "m-", "y-", "k-"]
+        plt.subplot(2, 3, 1)
+        plt.plot(epochs, tloss[:, 0], "g-", label="Mean Total Loss")
+        # plt.plot(epochs, vloss[:, 0], "r-", label="Val Total Loss")
+        plt.title("Total Mean Loss")
+        plt.xlabel("Epoch")
+        plt.ylabel("Loss")
+        plt.legend(loc='upper right')
+
+        plt.subplot(2, 3, 2)
+        plt.plot(epochs, tloss[:, 1], "g-", label="Train Mean Distance Loss")
+        # plt.plot(epochs, vloss[:, 1], "r-", label="Val Mean Distance Loss")
+        plt.title("Distance to Target Loss")
+        plt.xlabel("Epoch")
+        plt.ylabel("Loss")
+        plt.legend(loc='upper right')
+
+        plt.subplot(2, 3, 4)
+        plt.plot(epochs, tloss[:, 2], "g-", label="Mean Class Loss")
+        # plt.plot(epochs, vloss[:, 2], "r-", label="Val Class Loss")
+        plt.title("Landmark Classification Loss")
+        plt.xlabel("Epoch")
+        plt.ylabel("Loss")
+        plt.legend(loc='upper right')
+
+        plt.subplot(2, 3, 5)
+        plt.plot(epochs, agent0, "g-", label="Agent 0 Distance Loss")
+        plt.title("Agent 0")
+        plt.xlabel("Epoch")
+        plt.ylabel("Distance")
+        plt.legend(loc='upper right')
+
+        plt.subplot(2, 3, 3)
+        for i in range(3):
+            plt.plot(epochs, agent[i], colors[i], label="Target {}".format(i))
+        plt.title("Distance Target Training")
+        plt.xlabel("Epoch")
+        plt.ylabel("Distance (mm)")
+        plt.legend(loc='upper right')
+
+        plt.subplot(2, 3, 6)
+        for i in range(3):
+            plt.plot(epochs, vagent[i], colors[i], label="Target {}".format(i))
+        plt.title("Distance Target Validation")
+        plt.xlabel("Epoch")
+        plt.ylabel("Distance (mm)")
+        plt.legend(loc='upper right')
+
+        plt.savefig(path + "/results.png")
+        plt.show()
+        return
+
 ########################################################################################################################
 # Experimenting with model
 
 if __name__ == '__main__':
-    model = BaselineModel()
-    import numpy as np
-    path = "/Users/dianaescoboza/Documents/PycharmProjects/rl-landmark/rl-medical/src/data/train/0a0a5d3d-m527_a528_st533_se536_i21457_1_46_US_.png"
+    logs = BaselineLogs()
 
-    image = cv2.imread(path)  # .transpose(2, 0, 1)
-    x = round(0.4073333333333333 * 256)
-    y = round(0.6685823754789273 * 256)
-    # # image = cv2.copyMakeBorder(image, 0, 786 - image.shape[0], 0, 1136 - image.shape[1], cv2.BORDER_CONSTANT)
-    image = image.transpose(2, 0, 1)
-    image = torch.from_numpy(image).float() / 255
-    a, b = model.forward(image.unsqueeze(0))
-    print(a)
-    print(b)
-    # size = image.shape
-    # image = image / 255
-    # noise_img = image + np.random.rand(size[0], size[1], size[2]) * 0.5
-    # cv2.circle(image1, (x, y), radius=2, color=255, thickness=-1)
-    # cv2.circle(image2, (x, y), radius=2, color=255, thickness=-1)
-    # cv2.circle(image3, (x, y), radius=2, color=255, thickness=-1)
-    # imagescat = np.concatenate((image1, image2, image3), axis=1)
-    # cv2.imshow("image resize", imagescat)
-    # cv2.imshow("image", image)
-    # cv2.waitKey(0)
+    path = "/Users/dianaescoboza/Documents/PycharmProjects/rl-landmark/rl-medical/src/runs/Aug08_23-06-05_MacBook-Pro.local"
+    logs.saveBaseline(path)
+    logs.plot_baseline(path)
 
-    # width = 0
-    # height = 0
-    # max_width = []
-    # max_height = []
-    # files = [f for f in os.listdir(path) if not f.startswith('.')]
-    # for image in files:
-    #     im = cv2.imread(path + image)
-    #     size = im.shape
-    #     if size[0] > width:
-    #         width = size[0]
-    #         max_width = size
-    #     if size[1] > height:
-    #         height = size[1]
-    #         max_height = size
-    # # images max size:
-    # (786, 1136, 3)
-    # Old model
-    # output1 = []
-    # for i in range(self.targets + 1):
-    #     x = self.fc1[i](conv_out)
-    #     output1.append(self.prelu2[i](x))
-    # output1 = torch.stack(output1, dim=1)
-    #
-    # output2 = []
-    # for i in range(self.targets + 1):
-    #     x = self.fc2[i](output1[:, i])
-    #     output2.append(self.prelu3[i](x))
-    # output2 = torch.stack(output2, dim=1)
-    #
-    # output3 = []
-    # for i in range(self.targets):
-    #     x = self.fc3[i](output2[:, i])
-    #     output3.append(self.sigmoid[i](x))
-    # output3 = torch.stack(output3, dim=1)
-    # classification = self.sigmoid[-1](self.fc(output2[:, -1]))

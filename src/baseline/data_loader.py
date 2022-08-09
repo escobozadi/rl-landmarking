@@ -6,7 +6,7 @@ import torch
 
 
 class DataLoader(object):
-    def __init__(self, files_list, landmarks=8, batch_size=2, learning="base", returnLandmarks=True):
+    def __init__(self, files_list, landmarks=3, batch_size=2, learning="base", returnLandmarks=True):
         assert files_list, 'There is no files given'
 
         self.batch_size = batch_size
@@ -44,12 +44,12 @@ class DataLoader(object):
         landmarks[:] = np.nan
 
         classes = [0 for i in range(self.landmarks)]
-        with open(file) as t:
+        with open("." + file[5:]) as t:
             lines = [x.strip() for x in list(t) if x]
             for l in lines:
                 info = l.split(" ")
                 id = int(info[0])
-                landmarks[id, :] = info[1:3]
+                landmarks[id - 1, :] = info[1:3]
 
         targets = np.argwhere(~np.isnan(landmarks[:, 0])).reshape([-1, ])
         for i in range(self.landmarks):
@@ -60,7 +60,7 @@ class DataLoader(object):
     @staticmethod
     def getImage(filename):
         # Read Image and Get to Right Size
-        np_image = cv2.imread(filename)
+        np_image = cv2.imread("." + filename[5:])
         if np_image is None:
             print("Empty Image")
             print(filename)

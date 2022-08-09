@@ -117,7 +117,6 @@ class CleanData(object):
 
         return
 
-
     def SetIDs(self, dataset=None):
         # ankle
         # 0: Tibia --> 3: Tibia/Fibula
@@ -303,12 +302,10 @@ class ModelLog(object):
             elif line[0] == "Target":
                 if type == "train":
                     train_loss[epoch].append(line[3][:-1])
-                    train_loss[epoch].append(line[7][:-1])
-                    train_loss[epoch].append(line[10])
+                    train_loss[epoch].append(line[6])
                 else:
                     val_loss[epoch].append(line[3][:-1])
-                    val_loss[epoch].append(line[7][:-1])
-                    val_loss[epoch].append(line[10])
+                    val_loss[epoch].append(line[6])
                 continue
             elif line[0] == "Agent":
                 if type == "train":
@@ -608,31 +605,34 @@ class plotTraining(object):
 
         colors = ["k-", "c-", "b-", "g-", "r-", "m-", "y-", "k-"]
         plt.subplot(2, 3, 1)
-        plt.plot(epochs, tloss[:, 0], "r-", label="Mean Total Loss")
-        plt.title("Training Mean Loss")
+        plt.plot(epochs, tloss[:, 0], "g-", label="Mean Total Loss")
+        # plt.plot(epochs, vloss[:, 0], "r-", label="Val Total Loss")
+        plt.title("Total Mean Loss")
         plt.xlabel("Epoch")
         plt.ylabel("Loss")
         plt.legend(loc='upper right')
 
         plt.subplot(2, 3, 2)
-        plt.plot(epochs, tloss[:, 1], "r-", label="Mean Distance Loss")
-        plt.title("Training Distance to Target Loss")
+        plt.plot(epochs, tloss[:, 1], "g-", label="Train Mean Distance Loss")
+        # plt.plot(epochs, vloss[:, 1], "r-", label="Val Mean Distance Loss")
+        plt.title("Distance to Target Loss")
         plt.xlabel("Epoch")
         plt.ylabel("Loss")
         plt.legend(loc='upper right')
 
         plt.subplot(2, 3, 4)
-        plt.plot(epochs, tloss[:, 2], "r-", label="Mean IoU Loss")
-        plt.title("Training IoU Loss")
+        plt.plot(epochs, tloss[:, 2], "g-", label="Mean Class Loss")
+        # plt.plot(epochs, vloss[:, 2], "r-", label="Val Class Loss")
+        plt.title("Landmark Classification Loss")
         plt.xlabel("Epoch")
         plt.ylabel("Loss")
         plt.legend(loc='upper right')
 
         plt.subplot(2, 3, 5)
-        plt.plot(epochs, tloss[:, 3], "r-", label="Mean Class Loss")
-        plt.title("Training Landmark Detection Loss")
+        plt.plot(epochs, agent[0], "g-", label="Agent 0 Distance to Target")
+        plt.title("Agent 0")
         plt.xlabel("Epoch")
-        plt.ylabel("Loss")
+        plt.ylabel("Distance")
         plt.legend(loc='upper right')
 
         plt.subplot(2, 3, 3)
@@ -740,34 +740,21 @@ class FilesOrdering(object):
 
 if __name__ == '__main__':
 
-    dir = "/Users/dianaescoboza/Documents/SUMMER22/Datasets/"
-    dest = "/Users/dianaescoboza/Documents/PycharmProjects/rl-landmark/rl-medical/src/data/"
-    folders = ["test/", "val/", "train/"]
-    # images = [f for f in os.listdir(dir + folders[2]) if f[0] != "."]
-    # files = [dir + folders[2] + f for f in os.listdir(dir + folders[2]) if f[0] != "."]
-    # for im in images:
-    #     image = cv2.imread(dir + folders[2] + im)
-    #     image = cv2.resize(image, (256, 256))
-    #     cv2.imwrite(dest + folders[2] + im, image)
-
-    # plots = plotTraining()
-    # plots.plot_baseline(dir)
-    # path = "src/test-sync/all-targets-take2/mount/"
-    # trainlog = "src/test-sync/all-targets-take2/mount/train-epoch.json"
-    # vallog = "src/test-sync/all-targets-take2/mount/val-mean.json"
-    # traininglog = ModelLog()
-    # traininglog.saveBaseline(dir)
-
-
-    # traininglog.save_training(dir, path)
-    # train = plotTraining()
-    # train.plot_log(trainlog, vallog, "Train", "Validation", path, agents=8)
-    # train.save_training(dir, path)
-
+    dir = "/Users/dianaescoboza/Documents/SUMMER22/Datasets/ElbowDS/"
+    # dest = "/Users/dianaescoboza/Documents/PycharmProjects/rl-landmark/rl-medical/src/data/elbow-train"
+    # test = "/Users/dianaescoboza/Documents/PycharmProjects/rl-landmark/rl-medical/src/data/elbow-test"
+    # vald = "/Users/dianaescoboza/Documents/PycharmProjects/rl-landmark/rl-medical/src/data/elbow-val"
+    # t = "/Users/dianaescoboza/Documents/PycharmProjects/rl-landmark/rl-medical/src/data/elbow-filenames/"
+    # valfiles = np.array([f for f in os.listdir(vald) if f[0] != "."])
+    # tstfiles = np.array([f for f in os.listdir(test) if f[0] != "."])
+    # files = np.array([f for f in os.listdir(dest) if f[0] != "."])
+    #
+    # with open(t + "images_val.txt", "w") as f:
+    #     for im in valfiles:
+    #         f.write("./src/data/elbow-val/" + im + "\n")
 
     # order = FilesOrdering(files)
     # order.updateDir()
-
 
     # knee_dir = "/Users/dianaescoboza/Documents/SUMMER22/Datasets/KneeDS/knee-images/"
     # ankle_dir = "/Users/dianaescoboza/Documents/SUMMER22/Datasets/AnkleDS/ankle-images/"

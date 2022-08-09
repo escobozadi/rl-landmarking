@@ -2,6 +2,7 @@ import numpy as np
 import copy
 from collections import deque
 
+
 class ReplayMemory(object):
     def __init__(self, max_size, state_shape, history_len, agents):
         self.max_size = int(max_size)  # Number of transitions stored in exp replay buffer. default: 100,000

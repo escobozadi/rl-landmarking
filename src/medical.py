@@ -69,6 +69,7 @@ class MedicalPlayer(gym.Env):
         self.oscillations_allowed = oscillations_allowed
         self.logger = logger
         self.reset_stat()  # inits stat counters
+
         self.cnt = 0  # counter to limit number of steps per episodes
         self.max_num_frames = max_num_frames  # maximum number of frames (steps) per episodes
         self.info = None  # stores information: terminal, score, distError
@@ -257,7 +258,6 @@ class MedicalPlayer(gym.Env):
     @staticmethod
     def calcDistance(points1, points2, spacing=(1, 1)):
         """ calculate the distance between two points in mm"""
-
         spacing = np.array(spacing)
         points1 = spacing * np.array(points1)
         points2 = spacing * np.array(points2)
@@ -297,15 +297,11 @@ class MedicalPlayer(gym.Env):
         # print("TRAIN STEP ON TRAINING AGENTS")
         # print(self._target_loc)
         # print(np.argwhere(~np.isnan(np.asarray(self._target_loc)[:, 0])))
-        agent_wt = np.argwhere(~np.isnan(np.asarray(self._target_loc)[:, 0])).reshape([-1, ])
+        # agent_wt = np.argwhere(~np.isnan(np.asarray(self._target_loc)[:, 0])).reshape([-1, ])
         if self.task != 'play':
             for i in range(self.agents):
                 if go_out[i]:
-                    if self.task != "train":
-                        self.reward[i] = -1
-                    else:
-                        if i in agent_wt:
-                            self.reward[i] = -1
+                    self.reward[i] = -1
                 else:  # reward based on closeness
                     self.reward[i] = self._calc_reward(
                         current_loc[i], next_location[i], agent=i)
@@ -314,11 +310,11 @@ class MedicalPlayer(gym.Env):
         self._location = next_location
         self._screen = self._current_state()
 
-        # terminate if the distance is less than 1 during training
+        # terminate if the distance is less than 5mm during training
         if self.task == 'train':
             for i in range(self.agents):
-                if self.cur_dist[i] <= 1:
-                    self.logger.log(f"distance of agent {i} is <= 1")
+                if self.cur_dist[i] <= 5:
+                    self.logger.log(f"distance of agent {i} is <= 5")
                     self.terminal[i] = True
                     self.num_success[i] += 1
         """
@@ -346,6 +342,7 @@ class MedicalPlayer(gym.Env):
                     self.cur_dist[i] = self.calcDistance(self._location[i],
                                                          self._target_loc[i],
                                                          self.spacing)
+
             # multi-scale steps
             if self.multiscale:
                 if self.xscale > 1:
@@ -358,12 +355,12 @@ class MedicalPlayer(gym.Env):
                 else:
                     for i in range(self.agents):
                         self.terminal[i] = True
-                        if self.cur_dist[i] <= 1:
+                        if self.cur_dist[i] <= 5:
                             self.num_success[i] += 1
             else:
                 for i in range(self.agents):
                     self.terminal[i] = True
-                    if self.cur_dist[i] <= 1:
+                    if self.cur_dist[i] <= 5:
                         self.num_success[i] += 1
         # render screen if viz is on
         with _ALE_LOCK:

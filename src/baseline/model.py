@@ -10,7 +10,7 @@ from torchvision.models.segmentation import deeplabv3_mobilenet_v3_large
 
 class BaselineModel(nn.Module):
 
-    def __init__(self, targets=3):
+    def __init__(self, targets=3, labelpred=False):
         super(BaselineModel, self).__init__()
         self.targets = targets  # number of total landmarks
         self.device = torch.device(
@@ -60,18 +60,18 @@ class BaselineModel(nn.Module):
                 in_features=16*14*14,
                 out_features=256).to(
                 self.device) for _ in range(
-                self.targets + 1)])
+                self.targets)])
         self.prelu3 = nn.ModuleList(
-            [nn.PReLU().to(self.device) for _ in range(self.targets + 1)])
+            [nn.PReLU().to(self.device) for _ in range(self.targets)])
 
         self.fc2 = nn.ModuleList(
             [nn.Linear(
                 in_features=256,
                 out_features=128).to(
                 self.device) for _ in range(
-                self.targets + 1)])
+                self.targets)])
         self.prelu4 = nn.ModuleList(
-            [nn.PReLU().to(self.device) for _ in range(self.targets + 1)])
+            [nn.PReLU().to(self.device) for _ in range(self.targets)])
 
         # Predict target (x,y)
         self.fc3 = nn.ModuleList(
@@ -81,7 +81,14 @@ class BaselineModel(nn.Module):
                 self.device) for _ in range(
                 self.targets)])
 
-        self.fcl = nn.Linear(in_features=128, out_features=targets).to(self.device)
+        # Class prediction
+        self.labelpred = labelpred
+        if labelpred:
+            self.labelfc1 = nn.Linear(in_features=16 * 14 * 14, out_features=256).to(self.device)
+            self.labelprelu1 = nn.PReLU().to(self.device)
+            self.labelfc2 = nn.Linear(in_features=256, out_features=128).to(self.device)
+            self.labelprelu2 = nn.PReLU().to(self.device)
+            self.labelout = nn.Linear(in_features=128, out_features=targets).to(self.device)
 
         return
 
@@ -105,12 +112,14 @@ class BaselineModel(nn.Module):
             output.append(x)
         output = torch.stack(output, dim=1)
 
-        # Landmark Classification Layers
-        y = self.prelu3[-1](self.fc1[-1](conv_out))
-        y = self.prelu4[-1](self.fc2[-1](y))
-        classification = self.fcl(y)
+        if self.labelpred:
+            # Landmark Classification Layers
+            y = self.labelprelu1(self.labelfc1(conv_out))
+            y = self.labelprelu2(self.labelfc2(y))
+            classification = torch.abs(self.labelout(y))
+            return output, classification
 
-        return output, classification
+        return output
 
 
 class BaselineLogs(object):
@@ -273,13 +282,74 @@ class BaselineLogs(object):
         plt.show()
         return
 
+    def plot_dists(self, path):
+        train_dists = json.load(open(path + "/train-dists.json", "r"))
+        val_dists = json.load(open(path + "/val-dists.json", "r"))
+
+        epochs = np.asarray(list(train_dists.keys())).astype(int)
+        agent = np.zeros((3, len(epochs)))
+        vagent = np.zeros((3, len(epochs)))
+        tdists = np.asarray(list(train_dists.values())).astype(float)
+        vdists = np.asarray(list(val_dists.values())).astype(float)
+        for i in range(3):
+            agent[i] = tdists[:, i]
+            vagent[i] = vdists[:, i]
+
+        colors = ["k-", "c-", "b-", "g-", "r-", "m-", "y-", "k-"]
+        plt.subplot(2, 3, 1)
+        plt.plot(epochs, agent[0], "g-", label="Target 0 Distance")
+        plt.title("Training")
+        plt.xlabel("Epoch")
+        plt.ylabel("Distance")
+        plt.legend(loc='upper right')
+
+        plt.subplot(2, 3, 2)
+        plt.plot(epochs, agent[1], "g-", label="Target 1 Distance")
+        plt.title("Training")
+        plt.xlabel("Epoch")
+        plt.ylabel("Distance")
+        plt.legend(loc='upper right')
+
+        plt.subplot(2, 3, 3)
+        plt.plot(epochs, agent[2], "g-", label="Target 2 Distance")
+        plt.title("Training")
+        plt.xlabel("Epoch")
+        plt.ylabel("Distance")
+        plt.legend(loc='upper right')
+
+        #####Val
+        plt.subplot(2, 3, 4)
+        plt.plot(epochs, vagent[0], "m-", label="Target 0 Distance")
+        plt.title("Val")
+        plt.xlabel("Epoch")
+        plt.ylabel("Distance")
+        plt.legend(loc='upper right')
+
+        plt.subplot(2, 3, 5)
+        plt.plot(epochs, vagent[1], "m-", label="Target 1 Distance")
+        plt.title("Val")
+        plt.xlabel("Epoch")
+        plt.ylabel("Distance")
+        plt.legend(loc='upper right')
+
+        plt.subplot(2, 3, 6)
+        plt.plot(epochs, vagent[2], "m-", label="Target 2 Distance")
+        plt.title("Val")
+        plt.xlabel("Epoch")
+        plt.ylabel("Distance")
+        plt.legend(loc='upper right')
+
+        plt.savefig(path + "/dists.png")
+        plt.show()
+        return
+
 ########################################################################################################################
 # Experimenting with model
 
 if __name__ == '__main__':
     logs = BaselineLogs()
 
-    path = "/Users/dianaescoboza/Documents/PycharmProjects/rl-landmark/rl-medical/src/runs/Aug08_23-06-05_MacBook-Pro.local"
+    path = "/Users/dianaescoboza/Documents/PycharmProjects/rl-landmark/rl-medical/src/runs/Aug08_23-45-21_MacBook-Pro.local"
     logs.saveBaseline(path)
-    logs.plot_baseline(path)
+    logs.plot_dists(path)
 

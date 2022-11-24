@@ -38,17 +38,18 @@ def getLandmarksFromTXTFile(file, landmarks, split=' '):
     landmarks = np.zeros((landmarks, 2))
     landmarks[:] = np.nan
 
-    with open(file) as t:
+    with open(file[6:]) as t:
         lines = [x.strip() for x in list(t) if x]
         for l in lines:
             info = l.split(" ")
             id = int(info[0])
-            landmarks[id - 1, :] = info[1:3]
+            landmarks[id, :] = info[1:3]
 
     landmarks = np.asarray(landmarks)
     # landmarks[:,0] = -landmarks[:,0]
     # landmarks = landmarks.reshape((-1, landmarks.shape[1]))
     return landmarks
+
 
 def getLandmarksFromVTKFile(file):
     """
@@ -62,7 +63,7 @@ def getLandmarksFromVTKFile(file):
         5-> center of the mitral valve
         # Convert from [depth, width, height] to [width, height, depth]
     """
-    with open(file) as fp:
+    with open(file[6:]) as fp:
         landmarks = []
         for i, line in enumerate(fp):
             if i == 5:
@@ -76,7 +77,9 @@ def getLandmarksFromVTKFile(file):
                 return landmarks
 
 ###############################################################################
-class filesListJointUSLandmark(object): #2D joint US images
+
+
+class filesListJointUSLandmark(object):  # 2D joint US images
 
     def __init__(self, files_list=None, returnLandmarks=True, agents=3):
         # check if files_list exists

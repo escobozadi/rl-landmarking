@@ -19,8 +19,14 @@ class Evaluator(object):
         results used when playing demos.
         """
         if fixed_spawn is None:
-            num_runs = 1
-            fixed_spawn = np.array([0.5,0.5]).reshape((-1,2))
+            # rand_positions = np.random.random(10).reshape((-1, 2))
+            # fixed_spawn = np.array([0.5, 0.5] * 20).reshape((-1, 2))
+            # fixed_spawn = np.concatenate((rand_positions, fixed_spawn))
+            # np.random.shuffle(fixed_spawn)
+            # num_runs = fixed_spawn.shape[0]
+            # fixed_spawn = np.stack([fixed_spawn for _ in range(self.agents)], axis=-1)
+            fixed_spawn = np.array([0.5, 0.5]).reshape((-1, 2))
+            num_runs = fixed_spawn.shape[0]
             fixed_spawn = np.stack([fixed_spawn for _ in range(self.agents)], axis=-1)
 
         else:
@@ -64,8 +70,8 @@ class Evaluator(object):
                 distances.append([info[f"distError_{i}"] for i in range(self.agents)])
 
                 self.logger.write_locations(row)
-        mean = np.mean(distances, 0)
-        std = np.std(distances, 0, ddof=1)
+        mean = np.nanmean(distances, 0)
+        std = np.nanstd(distances, 0, ddof=1)
         if not silent:
             self.logger.log(f"mean distances {mean}")
             self.logger.log(f"Std distances {std}")

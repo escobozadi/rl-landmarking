@@ -199,8 +199,7 @@ class ModelLog(object):
         validation = {}
         info_epoch = {}
         success_train = {}
-        agents = {"0": 0, "1": 0, "2": 0, "3": 0, "4": 0, "5": 0,
-                  "6": 0, "7": 0, "8": 0, "9": 0, "10": 0}
+        agents = {"0": 0, "1": 0, "2": 0}
         epoch_num = 1
         with open(path) as t:
             lines = [x.strip() for x in list(t) if x]
@@ -342,7 +341,7 @@ class ModelLog(object):
 
         return
 
-    def read_output(self, file, agents=1):
+    def read_output(self, file, agents=3):
         """
         ['number',
         'Filename 0', 'Agent 0 pos x', 'Agent 0 pos y', 'Landmark 0 pos x', 'Landmark 0 pos y', 'Distance 0',
@@ -396,11 +395,14 @@ class ModelLog(object):
 
         return file_min, file_max, min_dist, max_dist
 
-    def image_show(self, min_dic, max_dic, dmin, dmax):
+    def image_show(self, min_dic, max_dic, dmin, dmax, save="src/runs/ankle-test-preliminary/", joint="ankle"):
         path = "src/data/images/"
-        save = "src/tests/test-results/all-agents-first-run/"
-        landmarks = ["Femur", "Quadriceps Tendon", "Patella", "Tibia/Fibula", "Talus",
-                     "Ulna", "Triceps Tendon Insertion", "Humerus"]
+        if joint == "ankle":
+            landmarks = ["Tibia/Fibula", "Talus", "Quadriceps Tendon"]
+        elif joint == "elbow":
+            landmarks = ["Quadriceps Tendon", "Humerus", "Ulna"]
+        else:   # knee
+            landmarks = ["Femur", "Quadriceps Tendon", "Patella"]
         size = (450, 450)
 
         for i in range(len(dmin)):
@@ -437,8 +439,8 @@ class ModelLog(object):
             himage = np.hstack((im1, im2))
 
             cv2.imwrite(save + "Agent{}-{}".format(i, landmarks[i]) + ".png", himage)
-        # cv2.imshow("Test: Min/Max Distance Image", himage)
-        # cv2.waitKey(0)
+        cv2.imshow("Test: Min/Max Distance Image", himage)
+        cv2.waitKey(0)
 
         return
 
@@ -702,7 +704,6 @@ class FilesOrdering(object):
 
         return
 
-
     def updateDir(self):
         train = "./data/train/"
         val = "./data/val/"
@@ -738,84 +739,113 @@ class FilesOrdering(object):
         return
 
 
+def datasetOrder():
+    dir = "/Users/dianaescoboza/Documents/SUMMER22/Datasets/KneeDS/knee-images"
+    dest = "/Users/dianaescoboza/Documents/PycharmProjects/rl-landmark/rl-medical/src/data"
+    files = np.array([f for f in os.listdir(dir) if f[0] != "."])
+    n = files.shape[0]
+    v = int(n * 0.2)
+    t = int(n * 0.1)
+    idxes = np.arange(n)
+    validx = np.random.choice(idxes, v)
+    tstidx = np.random.choice(np.delete(idxes, validx), t)
+    idxes = np.delete(idxes, np.append(validx, tstidx))
+    for im in files[tstidx]:
+        image = cv2.imread(dir + "/" + im)
+        image = cv2.resize(image, (256, 256))
+        image = cv2.normalize(image, None, 0, 255, cv2.NORM_MINMAX)
+        cv2.imwrite(dest + "/knee-test/" + im, image)
+
+    for im in files[validx]:
+        image = cv2.resize(cv2.imread(dir + "/" + im), (256, 256))
+        image = cv2.normalize(image, None, 0, 255, cv2.NORM_MINMAX)
+        cv2.imwrite(dest + "/knee-val/" + im, image)
+
+    for im in files[idxes]:
+        image = cv2.resize(cv2.imread(dir + "/" + im), (256, 256))
+        image = cv2.normalize(image, None, 0, 255, cv2.NORM_MINMAX)
+        cv2.imwrite(dest + "/knee-train/" + im, image)
+    return
+
+
+def datasetfilenames():
+    train = "./src/data/knee-train"
+    val = "./src/data/knee-val"
+    tst = "./src/data/knee-test"
+    train_label = [f for f in os.listdir(train) if f[0] != "."]
+    val_label = [f for f in os.listdir(val) if f[0] != "."]
+    tst_label = [f for f in os.listdir(tst) if f[0] != "."]
+
+    with open("./src/data/knee-filenames/images_train.txt", "w") as f:
+        for im in train_label:
+            f.write("./src/data/knee-train/" + im + '\n')
+
+    with open("./src/data/knee-filenames/images_val.txt", "w") as f:
+        for im in val_label:
+            f.write("./src/data/knee-val/" + im + '\n')
+
+    with open("./src/data/knee-filenames/images_test.txt", "w") as f:
+        for im in tst_label:
+            f.write("./src/data/knee-test/" + im + '\n')
+    return
+
+
+def Annotations():
+    knee_files = np.array([f for f in os.listdir(knee_dir) if f[0] != "."])
+    knee_annotations = {}
+    knee_annotations["categories"] = [{"id": 0, "name": "Femur"},
+                                      {"id": 1, "name": "Quadriceps Tendon"},
+                                      {"id": 2, "name": "Patella"}]
+    n = 0
+    knee_annotations["images"] = []
+    knee_annotations["annotations"] = []
+    for i in range(len(knee_files)):
+        im = {}
+        ann = {}
+        im["id"] = i
+        im["license"] = 1
+        im["file_name"] = knee_files[i]
+        image = cv2.imread(knee_dir + "/" + knee_files[i])
+        height = image.shape[0]
+        width = image.shape[1]
+        im["height"] = height
+        im["width"] = width
+        knee_annotations["images"].append(im)
+        ann["image_id"] = i
+        ann["segmentation"] = []
+        ann["iscrowd"] = 0
+        with open(knee_label + "/" + knee_files[i][:-3] + "txt", "r") as t:
+            lines = [x.strip() for x in list(t) if x]
+            for line in lines:
+                l = np.asarray(line.split(" ")).astype(float)
+                ann["category_id"] = int(l[0])
+                ann["bbox"] = [round(l[1] * width), round(l[2] * height),
+                               round(l[3] * height), round(l[4] * width)]
+                ann["area"] = round(l[3] * height) * round(l[4] * width)
+                ann["id"] = n
+                knee_annotations["annotations"].append(copy.deepcopy(ann))
+                n += 1
+
+    with open("/Users/dianaescoboza/Documents/PycharmProjects/rl-landmark/rl-medical/src/data/knee_test.json", "w") as j:
+        json.dump(knee_annotations, j)
+    return
+
+
 if __name__ == '__main__':
 
-    dir = "/Users/dianaescoboza/Documents/SUMMER22/Datasets/ElbowDS/"
-    # dest = "/Users/dianaescoboza/Documents/PycharmProjects/rl-landmark/rl-medical/src/data/elbow-train"
-    # test = "/Users/dianaescoboza/Documents/PycharmProjects/rl-landmark/rl-medical/src/data/elbow-test"
-    # vald = "/Users/dianaescoboza/Documents/PycharmProjects/rl-landmark/rl-medical/src/data/elbow-val"
-    # t = "/Users/dianaescoboza/Documents/PycharmProjects/rl-landmark/rl-medical/src/data/elbow-filenames/"
-    # valfiles = np.array([f for f in os.listdir(vald) if f[0] != "."])
-    # tstfiles = np.array([f for f in os.listdir(test) if f[0] != "."])
-    # files = np.array([f for f in os.listdir(dest) if f[0] != "."])
-    #
-    # with open(t + "images_val.txt", "w") as f:
-    #     for im in valfiles:
-    #         f.write("./src/data/elbow-val/" + im + "\n")
-
-    # order = FilesOrdering(files)
-    # order.updateDir()
-
-    # knee_dir = "/Users/dianaescoboza/Documents/SUMMER22/Datasets/KneeDS/knee-images/"
-    # ankle_dir = "/Users/dianaescoboza/Documents/SUMMER22/Datasets/AnkleDS/ankle-images/"
-    # elbow_dir = "/Users/dianaescoboza/Documents/SUMMER22/Datasets/ElbowDS/elbow-images/"
-    #
-    # knee_images = [f for f in os.listdir(knee_dir) if not f.startswith('.')]
-    # ankle_images = [f for f in os.listdir(ankle_dir) if not f.startswith('.')]
-    # elbow_images = [f for f in os.listdir(elbow_dir) if not f.startswith('.')]
+    rl_ankle_dir = "./src/runs/ankle-test-preliminary/logs.txt"
+    data = ModelLog()
+    file_min, file_max, min_dist, max_dist = data.read_output(rl_ankle_dir)
+    print(file_min)
+    print(file_max)
+    print(min_dist)
+    print(max_dist)
+    # data.image_show(file_min, file_max, min_dist, max_dist)
 
 
-    # data = CleanData()
-    # data.ImageNorm(elbow_dir, dest, elbow_images)
 
-    # label = "a60fc140-1498___m1488_a1498_s1511_0_186050_US_.txt"
-    # image = cv2.imread(dir + label[:-4] + ".png")
-    # y = image.shape[0]
-    # x = image.shape[1]
-    # with open(elbow_landmarks + label, "r") as target:
-    #     landmark = [line.strip() for line in list(target)]
-    # target.close()
-    # dic = {}
-    # for l in landmark:
-    #     info = l.split(" ")
-    #     id = int(info[0])
-    #     if id not in list(dic.keys()):
-    #         dic[id] = []
-    #         dic[id].append(info[1:])
-    #     else:
-    #         dic[id].append(info[1:])
-    #
-    # for k in list(dic.keys()):
-    #     s = str(k) + ' ' + ' '.join(dic[k][0])
-    #
-    #     print(s)
 
-    # dic[1] = np.asarray(dic[1]).astype(float)
-    # dic[1][:, 0] *= x
-    # dic[1][:, 1] *= y
-    #
-    # for i in range(len(dic[1])):
-    #     image = cv2.circle(image, (int(dic[1][i][0]), int(dic[1][i][1])), radius=4, color=255, thickness=-1)
-    #
-    # xavg = np.mean(dic[1][:, 0]).astype(int)
-    # yavg = np.mean(dic[1][:, 1]).astype(int)
-    # np_image = cv2.circle(image, (xavg, yavg), radius=6, color=(0, 0, 255), thickness=-1)
-    # cv2.imshow("image", image)  # image.transpose(1, 0))
-    # cv2.waitKey(0)
 
-    # vizualize(im, lan)
 
-    # logs = "src/test-sync/myserver/logs.txt"
-    # train_dist = "src/test-sync/myserver/train-epoch.json"
-    # val_dist = "src/test-sync/myserver/val-mean.json"
-    # save_dir = "src/test-sync/myserver/"
-    # save_training(logs, save_dir)
-    # plot_log(train_dist, val_dist,
-    #         "Train Mean Distance (new loss)", "Validation Mean Distance (new loss)", save_dir, agents=1)
-    # plot_loss("src/tests/test-results/info-epoch.json")
 
-    # results = ModelLog()
-    # dic_min, dic_max, min_dist, max_dist = results.read_output(
-    #     "src/runs/Jul29_10-49-21_MacBook-Pro.local/logs.txt", agents=8)
-    # results.image_show(dic_min, dic_max, min_dist, max_dist)
 

@@ -277,6 +277,7 @@ class CommNet(nn.Module):
     #     self.output = torch.zeros([batch, len(self.agents_targets), self.num_actions]).to(self.device)
     #     return
 
+
 class DQN:
     # The class initialisation function.
     def __init__(self, agents, frame_history, logger, number_actions=4, merge_layers=True,

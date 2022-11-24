@@ -15,8 +15,10 @@ import os
 import torch
 import numpy as np
 
+
 def warn(*args, **kwargs):
     pass
+
 
 warnings.warn = warn
 warnings.simplefilter("ignore", category=PendingDeprecationWarning)
@@ -26,12 +28,14 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 ###############################################################################
 # BREAKOUT (84,84) - MEDICAL 2D (60,60) - MEDICAL 3D (26,26,26)
-#IMAGE_SIZE = (45, 45, 45)
+# IMAGE_SIZE = (45, 45, 45)
 IMAGE_SIZE = (61, 61)
 
 # how many frames to keep
 # in other words, how many observations the network can see
 FRAME_HISTORY = 4
+
+
 ###############################################################################
 
 
@@ -58,6 +62,7 @@ def get_player(directory=None, files_list=None, landmark_ids=None, viz=False,
         # FrameStack modifies self.step to save observations into a queue
         env = FrameStack(env, FRAME_HISTORY, agents)
     return env
+
 
 def get_args(parser):
     parser.add_argument(
@@ -204,6 +209,7 @@ def get_args(parser):
         default=0.001, type=float)
     return parser.parse_args()
 
+
 ###############################################################################
 ###############################################################################
 
@@ -243,7 +249,12 @@ def main(args):
                   type=args.model_name, collective_rewards=args.team_reward, attention=args.attention,
                   ids=args.landmarks)
         model = dqn.q_network
-        model.load_state_dict(torch.load(args.load, map_location=model.device))  # Load pre-trained model
+        model_load = torch.load(args.load, map_location=model.device)
+        new_model = model_load.copy()
+        for module in model_load.keys():
+            new_model[module[7:]] = new_model.pop(module)
+            # print(module[7:])
+        model.load_state_dict(new_model)  # Load pre-trained model
         environment = get_player(files_list=args.files,
                                  file_type=args.file_type,
                                  landmark_ids=args.landmarks,
@@ -299,5 +310,3 @@ if __name__ == '__main__':
         main(args)
     else:
         train = DetecTrainer(args, args.landmarks, args.model).train()
-
-
